@@ -7,7 +7,7 @@ let scalarFieldTrace = null;
 let plotInitialized = false;
 
 // Initialize plot with preloaded data object and params
-export async function initializePlot(cachedData, initialE = 5.5, initialTol = 0.1, initialColor = "#ff0000") {
+export async function initializePlot(cachedData, initialE = 5.5, initialTol = 0.00, initialColor = "#ff0000") {
   const vertices = cachedData.brillouinZone.vertices;
   const edges = cachedData.brillouinZone.edges;
 

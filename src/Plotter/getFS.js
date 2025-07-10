@@ -26,7 +26,7 @@ export function getFermiIsosurface(
     }
   }
 
-  const rgbaColor = hexToRgba(color, 0.25);
+  const rgbaColor = hexToRgba(color, 1);
 
   const colorscale = [
     [0, rgbaColor],
@@ -35,6 +35,7 @@ export function getFermiIsosurface(
 
   return {
     type: "isosurface",
+    hoverinfo: "skip",
     x,
     y,
     z,
@@ -42,13 +43,14 @@ export function getFermiIsosurface(
     isomin: E - tolerance,
     isomax: E + tolerance,
     colorscale: colorscale,
+    opacity: 0.45,
     showscale: false,
-    lighting: {
-      ambient: 0.7,
-      diffuse: 0.2,
-      specular: 0.2,
-      roughness: 0.0,
-      fresnel: 0.1,
-    },
+  lighting: {
+    ambient: 1.0,
+    diffuse: 0.0, // no diffuse light hides tri features well
+    specular: 0.0,
+    roughness: 0.0,
+    fresnel: 0,
+  },
   };
 }

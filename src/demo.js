@@ -4,7 +4,7 @@ import { debounce } from "./utils.js";
 let data = null;
 
 let currentE = 5.5;
-let currentTol = 0.1;
+let currentTol = 0.00;
 let currentColor = "#ff0000";
 
 async function loadJSON(path) {
@@ -31,7 +31,7 @@ async function runDemo() {
     updatePlot(currentE, currentTol, currentColor, data);
   }
 
-  const debouncedInput = debounce(onUserInput, 10);
+  const debouncedInput = debounce(onUserInput, 0);
 
   EInput.addEventListener("input", debouncedInput);
   tolInput.addEventListener("input", debouncedInput);
