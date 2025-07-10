@@ -1,3 +1,17 @@
+// utils.js
+export const colorPalette = [
+  "#1f77b4", // muted blue
+  "#ff7f0e", // safety orange
+  "#2ca02c", // cooked asparagus green
+  "#d62728", // brick red
+  "#9467bd", // muted purple
+  "#8c564b", // chestnut brown
+  "#e377c2", // raspberry yogurt pink
+  "#7f7f7f", // middle gray
+  "#bcbd22", // curry yellow-green
+  "#17becf"  // blue-teal
+];
+
 // Utility: Convert hex color to rgba string with alpha
 export function hexToRgba(hex, alpha = 0.75) {
   // Remove leading '#' if present
@@ -42,4 +56,11 @@ export function debounce(fn, delay) {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), delay);
   };
+}
+
+export function getNiceRandomColor() {
+  const hue = Math.floor(Math.random() * 360); // full color wheel
+  const saturation = 65; // stay reasonably colorful
+  const lightness = 50; // not too light or dark
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }

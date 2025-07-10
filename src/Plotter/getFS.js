@@ -4,18 +4,13 @@ export function getFermiIsosurface(
   scalarFieldInfo,
   E,
   tolerance,
-  color = "#0000ff" // default blue
+  color = "#0000ff",
+  name = "Fermi Surface"
 ) {
   const { dimensions, origin, spacing, scalarField } = scalarFieldInfo;
   const [nx, ny, nz] = dimensions;
 
-  console.log(tolerance);
-  console.log(E);
-
-  const x = [];
-  const y = [];
-  const z = [];
-
+  const x = [], y = [], z = [];
   for (let ix = 0; ix < nx; ix++) {
     for (let iy = 0; iy < ny; iy++) {
       for (let iz = 0; iz < nz; iz++) {
@@ -26,31 +21,32 @@ export function getFermiIsosurface(
     }
   }
 
-  const rgbaColor = hexToRgba(color, 1);
-
   const colorscale = [
-    [0, rgbaColor],
-    [1, rgbaColor],
+    [0, color],
+    [1, color],
   ];
 
   return {
     type: "isosurface",
-    hoverinfo: "skip",
     x,
     y,
     z,
     value: scalarField,
+    showlegend: true,
     isomin: E - tolerance,
     isomax: E + tolerance,
-    colorscale: colorscale,
+    colorscale,
     opacity: 0.45,
     showscale: false,
-  lighting: {
-    ambient: 1.0,
-    diffuse: 0.0, // no diffuse light hides tri features well
-    specular: 0.0,
-    roughness: 0.0,
-    fresnel: 0,
-  },
+    name,
+    hoverinfo: "skip", // disable hover
+    lighting: {
+      ambient: 1.0,
+      diffuse: 0.0,
+      specular: 0.0,
+      roughness: 0.0,
+      fresnel: 0,
+    }
   };
 }
+

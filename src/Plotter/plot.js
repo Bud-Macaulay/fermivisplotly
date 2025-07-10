@@ -1,27 +1,34 @@
 import Plotly from "plotly.js-dist";
 import { getBZTraces } from "./getBZ.js";
 import { getFermiIsosurface } from "./getFS.js";
+import { colorPalette } from "../utils.js";
 
 let bzEdgesTrace = null;
-let scalarFieldTrace = null;
+let scalarFieldTraces = null;
 let plotInitialized = false;
 
-// Initialize plot with preloaded data object and params
-export async function initializePlot(cachedData, initialE = 5.5, initialTol = 0.00, initialColor = "#ff0000") {
-  const vertices = cachedData.brillouinZone.vertices;
-  const edges = cachedData.brillouinZone.edges;
+export async function initializePlot(
+  dataObject,
+  initialE = 5.5,
+  initialTol = 0.0
+) {
+  const { vertices, edges } = dataObject.brillouinZone;
 
   bzEdgesTrace = getBZTraces(vertices, edges, { color: "#111", width: 5 });
+  bzEdgesTrace.showlegend = false; // no legend for the BZ
 
-  scalarFieldTrace = getFermiIsosurface(
-    cachedData.scalarFieldInfo,
-    initialE,
-    initialTol,
-    initialColor
+  scalarFieldTraces = dataObject.scalarFields.map((field, idx) =>
+    getFermiIsosurface(
+      field.scalarFieldInfo,
+      initialE,
+      initialTol,
+      colorPalette[idx % colorPalette.length],
+      field.name ?? `Band ${idx + 1}`
+    )
   );
 
   const layout = {
-    title: "Brillouin Zone + Scalar Field",
+    title: "Brillouin Zone + Scalar Fields",
     scene: {
       xaxis: { visible: false },
       yaxis: { visible: false },
@@ -29,37 +36,65 @@ export async function initializePlot(cachedData, initialE = 5.5, initialTol = 0.
     },
   };
 
-  await Plotly.newPlot("plot", [bzEdgesTrace, scalarFieldTrace], layout);
+  await Plotly.newPlot("plot", [bzEdgesTrace, ...scalarFieldTraces], layout);
   plotInitialized = true;
+
+  const plotDiv = document.getElementById("plot");
+  plotDiv.on("plotly_legendclick", (eventData) => {
+    const scene = plotDiv._fullLayout.scene;
+    if (!scene) return;
+
+    const currentCamera = { ...scene.camera };
+
+    setTimeout(() => {
+      Plotly.relayout(plotDiv, {
+        "scene.camera": currentCamera,
+      });
+    }, 0);
+  });
 }
 
-export function updatePlot(E, tolerance, color, cachedData) {
+export function updatePlot(E, tolerance, dataObject) {
   if (!plotInitialized) {
     console.warn("Plot not initialized yet.");
     return;
   }
 
-  // Create new isosurface trace
-  scalarFieldTrace = getFermiIsosurface(
-    cachedData.scalarFieldInfo,
-    E,
-    tolerance,
-    color
+  const plotDiv = document.getElementById("plot");
+  const oldTraces = plotDiv.data;
+  const visibleStates = oldTraces.map((trace) => trace.visible);
+
+  scalarFieldTraces = dataObject.scalarFields.map((field, idx) =>
+    getFermiIsosurface(
+      field.scalarFieldInfo,
+      E,
+      tolerance,
+      colorPalette[idx % colorPalette.length],
+      field.name ?? `Band ${idx + 1}`
+    )
   );
 
-  // Get current camera
-  const scene = document.getElementById('plot')._fullLayout.scene;
+  const newTraces = [bzEdgesTrace, ...scalarFieldTraces];
+
+  // Preserve visibility state of existing traces if possible
+  for (let i = 0; i < newTraces.length; i++) {
+    if (visibleStates[i] !== undefined) {
+      newTraces[i].visible = visibleStates[i];
+    }
+  }
+
+  const scene = plotDiv._fullLayout.scene;
   const camera = scene ? scene.camera : null;
 
   const newLayout = {
-    title: "Brillouin Zone + Scalar Field",
+    title: "Brillouin Zone + Scalar Fields",
     scene: {
       xaxis: { visible: false },
       yaxis: { visible: false },
       zaxis: { visible: false },
-      ...(camera && { camera }), // preserve camera if it exists
+      ...(camera && { camera }),
     },
   };
 
-  Plotly.react("plot", [bzEdgesTrace, scalarFieldTrace], newLayout);
+  Plotly.react("plot", newTraces, newLayout);
 }
