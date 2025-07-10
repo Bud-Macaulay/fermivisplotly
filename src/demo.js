@@ -26,7 +26,7 @@ async function runDemo() {
     updatePlot(currentE, currentTol, data);
   };
 
-  const debouncedInput = debounce(onUserInput, 20);
+  const debouncedInput = debounce(onUserInput, 0);
   EInput.addEventListener("input", debouncedInput);
   tolInput.addEventListener("input", debouncedInput);
 }
