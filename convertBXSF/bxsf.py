@@ -35,7 +35,8 @@ def parse_bxsf_header(file_path):
             except ValueError:
                 pass
 
-        if "BANDGRID_3D_BANDS" in line:
+        # look for bandgrid start... - this is not consistant?
+        if "BANDGRID_3D_BANDS" in line or"BEGIN_BANDGRID_3D_fermi" in line:
             try:
                 num_bands = int(lines[i+1])
                 grid_shape = tuple(map(int, lines[i+2].split()))
@@ -46,7 +47,7 @@ def parse_bxsf_header(file_path):
                     list(map(float, lines[i+6].split()))
                 ])
             except Exception as e:
-                raise ValueError(f"Failed to parse BANDGRID_3D_BANDS block: {e}")
+                raise ValueError(f"Failed to parse BANDGRID block: {e}")
             break
 
     return num_bands, grid_shape, origin, reciprocal_vectors, fermi_energy, comment

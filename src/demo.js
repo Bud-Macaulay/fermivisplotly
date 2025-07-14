@@ -21,7 +21,7 @@ async function runDemo() {
     vis.update(E, tol);
   };
 
-  const debouncedInput = debounce(onUserInput, 0);
+  const debouncedInput = debounce(onUserInput, 10);
   EInput.addEventListener("input", debouncedInput);
   tolInput.addEventListener("input", debouncedInput);
 }
