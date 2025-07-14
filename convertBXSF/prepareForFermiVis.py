@@ -19,13 +19,18 @@ def export_multiple_scalar_fields_with_edges_to_json(
     scalar_fields_json = []
     for scalar_field_bz, band_name in zip(scalar_fields_bz, band_names):
         safe_field = np.nan_to_num(scalar_field_bz, nan=0.0)
-        rounded_field = np.round(safe_field, 2)
+
+        # 'lossy but significant' fs reduction: 
+        rounded_array = np.round(safe_field, 2).flatten(order="C")
+
+        # lossless fs reduction: 
+        rounded_list = [0 if x == 0.0 else x for x in rounded_array.tolist()]
 
         scalar_fields_json.append({
             "name": band_name,
             "scalarFieldInfo": {
                 "dimensions": [Nx, Ny, Nz],
-                "scalarField": rounded_field.flatten(order="C").tolist(),
+                "scalarField": rounded_list,
                 "origin": np.round(origin, 6).tolist(),
                 "spacing": np.round(spacing, 6).tolist()
             }
@@ -40,7 +45,7 @@ def export_multiple_scalar_fields_with_edges_to_json(
             "reciprocalVectors": np.round(bz.bxsf.reciprocal_vectors, 6).tolist()
         }
     }
-
+    # lossless reduction of file size by culling spaces.
     with open(path, "w") as f:
         json.dump(data, f, separators=(',', ':'))
     print(f"JSON export complete: {path}")
