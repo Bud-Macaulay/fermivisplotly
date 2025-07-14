@@ -24,7 +24,12 @@ def export_multiple_scalar_fields_with_edges_to_json(
         rounded_array = np.round(safe_field, 2).flatten(order="C")
 
         # lossless fs reduction: 
-        rounded_list = [0 if x == 0.0 else x for x in rounded_array.tolist()]
+        # Cleans up 0.0 -> 0; (15% fs reduction)
+        # Also 1.0 -> 1; [we expect 1% to land on an integer after rounding]
+        rounded_list = [
+            int(x) if x.is_integer() else x
+            for x in rounded_array.tolist()
+        ]
 
         scalar_fields_json.append({
             "name": band_name,

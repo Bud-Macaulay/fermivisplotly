@@ -102,5 +102,8 @@ Replace `src/example_data/data.json` with your own converted dataset.
   - Low-resolution preview that updates quickly, with full-res in background
 
 - Edges of isosurfaces sometimes clip poorly – may be a data-level issue or an expensive fix.
+
   - Is this clipping expected for these isosurfaces?
   - Maybe cull near-BZ edge values at the data level
+
+- Perhaps non uniform grids (either those not that are cubic) or those with higher density near the center may be a easy way to get better looking isosurfaces at reduced comp cost?
