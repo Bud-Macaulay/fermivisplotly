@@ -16,6 +16,8 @@ def export_multiple_scalar_fields_with_edges_to_json(
     spacing = (max_corner - min_corner) / np.array([Nx - 1, Ny - 1, Nz - 1])
     origin = min_corner
 
+    fermi_energy  = bz.bxsf.fermi_energy
+
     scalar_fields_json = []
     for scalar_field_bz, band_name in zip(scalar_fields_bz, band_names):
         safe_field = np.nan_to_num(scalar_field_bz, nan=0.0)
@@ -43,6 +45,7 @@ def export_multiple_scalar_fields_with_edges_to_json(
 
     vertices, edges = bz.get_bz_outline_edges()
     data = {
+        "fermiEnergy": fermi_energy,
         "scalarFields": scalar_fields_json,
         "brillouinZone": {
             "vertices": np.round(vertices, 6).tolist(),

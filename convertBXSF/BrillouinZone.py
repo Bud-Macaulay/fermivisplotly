@@ -155,7 +155,8 @@ class BrillouinZoneData:
         coords = coords.T
 
         # Interpolate with periodic boundary conditions (mode='wrap') mirror might be better?
-        values = map_coordinates(field, coords, order=1, mode='wrap')
+        # TODO read this: "https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html"        
+        values = map_coordinates(field, coords, order=1, mode='nearest')
         return values
 
     def sample_scalar_field_in_bz(self, resolution=50, band_index=0):
