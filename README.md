@@ -1,43 +1,106 @@
-# FermiVisPlotly
+# **FermiVisPlotly**
 
-### WIP README. - if you are reading this and its after 15.07.2025, tell bud to update this readme...
+## Interactive 3D visualization of Fermi surfaces inside the Brillouin zone, powered by [Plotly.js](https://plotly.com/javascript/).
 
-Interactive 3D visualization of Fermi surfaces within the Brillouin zone using Plotly.js.
+- A small JavaScript module to visualize Fermi surfaces as isosurfaces
+- Shows them inside the Brillouin zone, rendered with Plotly.js
+- Usable in:
 
-This package is largely a WIP and requires data to be preformated into a specific datastructure.
+  - Vanilla JS
+  - React (via a simple wrapper component)
 
-## Convert a bxsf
+- Requires your data to be preprocessed into a JSON format
 
-There is a utilty (see convertBXSF/) to convert bxsf to json.
-``` py
+---
+
+## **Converting BXSF files**
+
+Use the helper script to convert `.bxsf` to the required JSON format:
+
+```bash
 cd convertBXSF
-pip install numpy, scipy # for voronoi and remapping
+pip install numpy scipy  # needed for Voronoi & remapping
 
-# Simple usage
-python3 prepareForFermiVis.py PATH/TO/BXSF.bxsf
+# Convert a file:
+python3 prepareForFermiVis.py PATH/TO/your.bxsf
 ```
-This utility also has individual band scraping and resolution control.
 
-## Usage 
-The usage is currently a bit finnicky because I have yet to make this into a nice component... I will - 
+Has optional flags to control:
 
-For now updating the data.json file inside src/example_data:
-``` py
+- Choose resolution
+- Extraction of specific band indices
+
+---
+
+## 🚀 **Usage (Vanilla JS)**
+
+```js
+import { FermiVisualiser } from "fermi-vis-plotly";
+
+const data = await fetch("./path/to/your/data.json").then((r) => r.json());
+
+// Grab a div where you want the plot:
+const container = document.getElementById("plot");
+
+// Create visualiser:
+const vis = new FermiVisualiser(container, data, {
+  initialE: 5.5,
+  initialTol: 0.0,
+});
+
+// Later, update:
+vis.update(newE, newTolerance);
+```
+
+---
+
+## ⚛ **Usage (React)**
+
+Wrap it with your own controls:
+
+```jsx
+<FermiVisualiserReact
+  data={data}
+  initialE={5.5}
+  initialTol={0.0}
+  E={E}
+  tolerance={tol}
+/>
+```
+
+Your React state drives updates — the visualiser only handles plotting.
+
+```js
+const [E, setE] = useState(5.5); // controlled state for energy
+const [tol, setTol] = useState(0.0); // controlled state for tolerance
+```
+
+---
+
+## 🛠 **Development & demo**
+
+For the included demo with an example dataset:
+
+```bash
 npm install
 npm run dev
-http://localhost:5173/ # for a visualiser
 ```
 
-## Performance (Notes to self)
-Rendering of isosurfaces is expensive and plotly struggles with multiple isosurfaces, as of current there is a listener and debouncer that tracks E choice and updates the isosurface. 
+Then open: [http://localhost:5173/](http://localhost:5173/)
 
-Maybe a 'recalculate' button might be a bit nicer, or even an extremely low res isosurface is calculated in the foreground while the larger isosurfaces get calculated in the background.
+Replace `src/example_data/data.json` with your own converted dataset.
 
-The plot seems to function moderatlely well with the default resolutions (5 band test file), although not particularly pretty.
+---
 
-Would like to fix the edge isosurfaces being clipped very poorly but i think this is either a very complicated task or a very expensive process. 
-    
- - Is this even expected behaviour for these isosurfaces? 
- - maybe there is a solution at the data level?
- 
- - if its not expected behaviour we can maybe choose to just not render if 98+ of points are some tolerance away from the origin?
+## **(WIP) and potential lowhanging fruit**
+
+- Plotly.js can struggle with multiple large isosurfaces.
+- Current solution: debounce user input to avoid too many updates.
+- Possible future improvements:
+
+  - “Recalculate” button instead of live update
+  - Low-resolution preview that updates quickly, with full-res in background
+
+- Edges of isosurfaces sometimes clip poorly – may be a data-level issue or an expensive fix.
+  - Is this clipping expected for these isosurfaces?
+  - Maybe cull near-BZ edge values at the data level

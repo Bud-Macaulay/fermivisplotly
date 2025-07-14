@@ -1,29 +1,24 @@
-import { initializePlot, updatePlot } from "./main.js";
+import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser.js";
 import { debounce } from "./utils.js";
 
-let data = null;
-let currentE = 5.5;
-let currentTol = 0.0;
-
-async function loadJSON(path) {
-  const resp = await fetch(path);
-  console.log(`Loaded data from: ${path}`);
-  return resp.json();
-}
-
 async function runDemo() {
-  data = await loadJSON("./src/example_data/data.json");
+  const data = await fetch("./src/example_data/data.json").then((r) =>
+    r.json()
+  );
 
-  await initializePlot(data, currentE, currentTol);
+  const containerDiv = document.getElementById("plot");
+  const vis = new FermiVisualiser(containerDiv, data, {
+    initialE: 5.5,
+    initialTol: 0.0,
+  });
 
   const EInput = document.getElementById("E");
   const tolInput = document.getElementById("tolerance");
 
   const onUserInput = () => {
-    currentE = parseFloat(EInput.value);
-    currentTol = parseFloat(tolInput.value);
-
-    updatePlot(currentE, currentTol, data);
+    const E = parseFloat(EInput.value);
+    const tol = parseFloat(tolInput.value);
+    vis.update(E, tol);
   };
 
   const debouncedInput = debounce(onUserInput, 0);

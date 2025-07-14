@@ -1,1 +1,1 @@
-export { initializePlot, updatePlot } from "./Plotter/plot.js";
+export { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser.js";
