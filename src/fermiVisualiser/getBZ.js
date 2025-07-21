@@ -27,3 +27,25 @@ export function getBZTraces(vertices, edges, options = {}) {
     hoverinfo: "skip",
   };
 }
+
+export function getBZMesh(vertices, faces, options = {}) {
+  const { color = "#888", opacity = 0.2, name = "BZ Faces" } = options;
+
+  console.log("creating mesh from faces...");
+
+  return {
+    type: "mesh3d",
+    x: vertices.map((v) => v[0]),
+    y: vertices.map((v) => v[1]),
+    z: vertices.map((v) => v[2]),
+    i: faces.map((f) => f[0]),
+    j: faces.map((f) => f[1]),
+    k: faces.map((f) => f[2]),
+    color,
+    opacity,
+    flatshading: true,
+    hoverinfo: "skip",
+    name,
+    showlegend: false,
+  };
+}

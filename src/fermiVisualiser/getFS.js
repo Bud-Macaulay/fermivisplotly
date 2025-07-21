@@ -1,4 +1,4 @@
-import { hexToRgba} from "../utils.js"
+import { hexToRgba } from "../utils.js";
 
 export function getFermiIsosurface(
   scalarFieldInfo,
@@ -10,7 +10,9 @@ export function getFermiIsosurface(
   const { dimensions, origin, spacing, scalarField } = scalarFieldInfo;
   const [nx, ny, nz] = dimensions;
 
-  const x = [], y = [], z = [];
+  const x = [],
+    y = [],
+    z = [];
   for (let ix = 0; ix < nx; ix++) {
     for (let iy = 0; iy < ny; iy++) {
       for (let iz = 0; iz < nz; iz++) {
@@ -35,7 +37,7 @@ export function getFermiIsosurface(
     showlegend: true,
     isomin: E - tolerance,
     isomax: E + tolerance,
-    colorscale,
+    colorscale: colorscale, // colorscale or RdBu for multi or single band plots.
     opacity: 0.45,
     showscale: false,
     name,
@@ -46,7 +48,6 @@ export function getFermiIsosurface(
       specular: 0.0,
       roughness: 0.0,
       fresnel: 0,
-    }
+    },
   };
 }
-
