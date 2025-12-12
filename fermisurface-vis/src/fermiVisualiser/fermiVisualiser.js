@@ -11,15 +11,14 @@ export class FermiVisualiser {
 
     this.bvectors = this.dataObject.brillouinZone.reciprocalVectors;
 
-    this.meshOpacity = options.meshOpacity ?? 0.95;
+    this.meshOpacity = options.meshOpacity ?? 1.0;
 
     this.defaultMeshLighting = {
-      ambient: 0.6,
-      diffuse: 0.8,
-      specular: 0.6,
-      roughness: 0.3,
-      fresnel: 0.2,
-      lightposition: { x: 0, y: 0, z: 0 },
+      ambient: 0.9,
+      diffuse: 0.2,
+      specular: 0.0,
+      roughness: 1.0,
+      fresnel: 0.0,
     };
 
     this.meshLighting = options.meshLighting || this.defaultMeshLighting;
@@ -117,7 +116,7 @@ export class FermiVisualiser {
         E: this.currentE,
         slicedPlanes: this.planes,
         color: colorPalette[idx % colorPalette.length],
-        meshOpacity: 0.95,
+        meshOpacity: this.meshOpacity,
         meshLighting: this.meshLighting,
         name: field.name ?? `Band ${idx + 1}`,
       })
@@ -175,7 +174,7 @@ export class FermiVisualiser {
           E: E,
           slicedPlanes: this.planes,
           color: colorPalette[idx % colorPalette.length],
-          meshOpacity: 0.95,
+          meshOpacity: this.meshOpacity,
           meshLighting: this.meshLighting,
           name: field.name ?? `Band ${idx + 1}`,
         })

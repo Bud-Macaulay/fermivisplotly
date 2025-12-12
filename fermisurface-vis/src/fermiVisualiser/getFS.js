@@ -21,6 +21,8 @@ export function getFermiMesh3d({
   const { dimensions, origin, spacing, minval, maxval, formattedScalarField } =
     scalarFieldInfo;
 
+  console.log("this.meshOpact", meshOpacity);
+
   if (1.1 * E < minval || 0.9 * E > maxval) {
     // if outside of range just return a placeholder mesh
     return {
@@ -33,7 +35,7 @@ export function getFermiMesh3d({
       k: [0],
       color,
       opacity: meshOpacity,
-      flatshading: false,
+      flatshading: true,
       name,
       hoverinfo: "skip",
       showlegend: true,
@@ -154,7 +156,7 @@ export function getFermiMesh3d({
     j,
     k,
     color,
-    opacity: 0.95,
+    opacity: meshOpacity,
     flatshading: true,
     name,
     hoverinfo: "skip",
