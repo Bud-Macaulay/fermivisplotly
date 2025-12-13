@@ -1,3 +1,4 @@
 node_modules
 dist/
-convertBXSF/__pycache__/
+__pycache__/
+fermidata.json

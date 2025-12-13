@@ -2,24 +2,8 @@
 
 This repository contains
 
-- ./convertBXSF - a python package that allows conversion from a single bxsf file to a web-friendly json file.
+- ./convert-bxsf - a python package that allows conversion from a single bxsf file to a web-friendly json file.
 - ./fermisurface-vis - the javascript package to visualise the json file.
-
----
-
-### Converting BXSF files
-
-Use the helper script to convert `.bxsf` to the required JSON format:
-
-```bash
-cd convertBXSF
-pip install numpy scipy  # needed for Voronoi & remapping
-
-# Convert a file:
-python3 ./prepareForFermiVis.py path/to/your.bxsf -r RESOLUTION (default:20)
-
-python3 ./prepareForFermiVis.py -h # for other flags.
-```
 
 ---
 

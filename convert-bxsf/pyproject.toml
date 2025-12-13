@@ -1,0 +1,17 @@
+[project]
+name = "convert-bxsf"
+version = "0.0.1"
+description = "Tools to convert bands BXSF file to a web-friendly json."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "scipy",
+]
+
+[project.scripts]
+convert-bxsf = "convert_bxsf.prepare_json:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

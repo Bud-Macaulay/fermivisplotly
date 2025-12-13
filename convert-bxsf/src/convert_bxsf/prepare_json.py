@@ -3,8 +3,9 @@ import argparse
 import json
 
 import numpy as np
-from BrillouinZone import BrillouinZoneData
-from bxsf import parse_bxsf
+
+from .BrillouinZone import BrillouinZoneData
+from .bxsf import parse_bxsf
 
 
 # --- Helper methods to improve the visualiser clipping algorithm --- #
