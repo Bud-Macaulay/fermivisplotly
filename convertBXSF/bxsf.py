@@ -1,7 +1,8 @@
 # bxsf.py
 from dataclasses import dataclass
+
 import numpy as np
-import re
+
 
 @dataclass
 class BxsfData:
@@ -12,6 +13,7 @@ class BxsfData:
     fermi_energy: float = None
     comment: str = ""
     scalar_field: np.ndarray = None  # shape: (num_bands, nx, ny, nz)
+    band_ranges: np.ndarray = None # [band_index] = (min, max)
 
 
 def parse_bxsf_header(file_path):
@@ -70,6 +72,7 @@ def parse_bxsf(file_path):
     nx, ny, nz = grid_shape
     total_points = nx * ny * nz
     scalar_field = []
+    band_ranges = []
 
     reading_band = False
     current_band_data = []
@@ -100,6 +103,7 @@ def parse_bxsf(file_path):
                     raise ValueError(f"Band {band_count} has incorrect number of values")
                 band_array = np.array(current_band_data).reshape(grid_shape)
                 scalar_field.append(band_array)
+                band_ranges.append((np.min(band_array), np.max(band_array)))
                 reading_band = False
                 band_count += 1
 
@@ -114,4 +118,5 @@ def parse_bxsf(file_path):
         fermi_energy=fermi_energy,
         comment=comment,
         scalar_field=np.stack(scalar_field),
+        band_ranges=np.stack(band_ranges),
     )

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import argparse
-import numpy as np
 import json
 
-from bxsf import parse_bxsf
+import numpy as np
 from BrillouinZone import BrillouinZoneData
+from bxsf import parse_bxsf
 
 
 # --- Helper methods to improve the visualiser clipping algorithm --- #
@@ -72,6 +72,30 @@ def sort_faces_and_planes_by_impact(faces, planes, min_corner, max_corner):
     planes_sorted = [p[1] for p in paired_sorted]
 
     return faces_sorted, planes_sorted
+
+def get_band_indices_around_fermi(band_ranges, fermi_energy, num_bands):
+    """
+    Select bands based on the distance to fermi level according to:
+    * their midpoint if they cross Fermi level;
+    * their maximum if they're below Fermi level;
+    * their minimum if they're above Fermi level.
+    """
+    distances = []
+
+    for i, (emin, emax) in enumerate(band_ranges):
+        if emin <= fermi_energy <= emax:
+            ref_energy = 0.5 * (emin + emax)
+        elif emax < fermi_energy:
+            ref_energy = emax
+        else:
+            ref_energy = emin
+        distance = abs(ref_energy - fermi_energy)
+        distances.append((distance, i))
+
+    distances.sort(key=lambda x: x[0])
+    band_indices = [i for _, i in distances[:num_bands]]
+    band_indices.sort()
+    return band_indices
 
 # --- Main export function --- #
 def export_multiple_scalar_fields_with_edges_to_json(
@@ -158,8 +182,8 @@ def main():
         help="Output JSON filename (default: fermidata.json)"
     )
     parser.add_argument(
-        "-b", "--bands", type=str,
-        help="Comma-separated list of band indices to export (default: all bands)"
+        "-b", "--bands", type=int,
+        help="Number of bands around Fermi (default: all bands)"
     )
 
     parser.add_argument(
@@ -197,10 +221,13 @@ def main():
         points_in_bz, mask = bz.filter_points_in_bz(grid_points)
         frac_coords = bz.cartesian_to_fractional(points_in_bz)
 
-    if args.bands:
-        band_indices = [int(idx.strip()) - 1 for idx in args.bands.split(",")]
-    else:
+    if args.bands is None:
         band_indices = list(range(data.num_bands))
+    else:
+        band_indices = get_band_indices_around_fermi(
+            data.band_ranges, data.fermi_energy, args.bands
+        )
+    print(f"=== Selected bands for export: {', '.join(str(b+1) for b in band_indices)} ===")
 
     scalar_fields_bz = []
     band_names = []

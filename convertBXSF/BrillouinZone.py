@@ -1,8 +1,9 @@
-import numpy as np
-from scipy.spatial import Voronoi, Delaunay
-from scipy.ndimage import map_coordinates
-from scipy.spatial import ConvexHull
 from collections import defaultdict
+
+import numpy as np
+from scipy.ndimage import map_coordinates
+from scipy.spatial import ConvexHull, Delaunay, Voronoi
+
 
 class BrillouinZoneData:
     def __init__(self, bxsf_data):
@@ -78,8 +79,6 @@ class BrillouinZoneData:
             planes.append({"normal": normal.tolist(), "D": D})
 
         return vertices.tolist(), faces.tolist(), planes
-
-
 
 
     def get_bz_outline_edges(self):
