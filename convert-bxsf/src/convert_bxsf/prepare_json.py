@@ -100,13 +100,16 @@ def get_band_indices_around_fermi(band_ranges, fermi_energy, num_bands):
     return band_indices
 
 
-def get_band_indices_from_energy_window(band_ranges, energy_window):
+def get_band_indices_from_energy_window(band_ranges, energy_window, ref_energy=0.0):
     """
-    gets all bands that fall cross an energy window at anypoint.
+    Get all bands that fall across an energy window at any point.
     """
-    print(f"ENERGY WINDOW: {energy_window}")
-
     E_min, E_max = energy_window
+
+    E_min += ref_energy
+    E_max += ref_energy
+
+    print(f"ENERGY WINDOW: {(E_min, E_max)}")
 
     band_indices = []
     for i, (emin, emax) in enumerate(band_ranges):
@@ -191,61 +194,20 @@ def export_multiple_scalar_fields_with_edges_to_json(
     print(f"JSON export complete: {path}")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Export BXSF scalar fields and Brillouin zone outline to JSON."
-    )
-    parser.add_argument("bxsf_file", help="Input .bxsf file path")
-    parser.add_argument(
-        "-r",
-        "--resolution",
-        type=int,
-        default=20,
-        help="Grid resolution along each axis (default: 20)",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="fermidata.json",
-        help="Output JSON filename (default: fermidata.json)",
-    )
-    parser.add_argument(
-        "-b",
-        "--bands",
-        type=int,
-        help="Number of bands around Fermi (default: all bands)",
-    )
-
-    parser.add_argument(
-        "-e",
-        "--energy_window",
-        nargs=2,
-        type=float,
-        metavar=("E_MIN", "E_MAX"),
-        help="Energy window [min, max] to select bands. (default: all bands)",
-    )
-
-    parser.add_argument(
-        "-nm",
-        "--no-mask-outside-bz",
-        dest="no_mask_outside_bz",
-        action="store_false",
-        default=True,
-        help="Dont mask values outside of the brillioun Zone",
-    )
-
-    args = parser.parse_args()
-
-    if args.bands and args.energy_window:
-        print("CANT USE BOTH BANDS MODE AND ENERGY WINDOW MODE exiting")
-        exit()
-
+def prepare_json(
+    bxsf_file,
+    energy_window=None,
+    bands=None,
+    resolution=20,
+    output_fname="fermidata.json",
+    mask_outside_bz=False,
+):
     print("=== Parsing BXSF data ===")
-    data = parse_bxsf(args.bxsf_file)
+    data = parse_bxsf(bxsf_file)
     bz = BrillouinZoneData(data)
 
-    print(f"=== Generating grid with resolution={args.resolution} ===")
-    grid_points, shape = bz.generate_cartesian_grid(resolution=args.resolution)
+    print(f"=== Generating grid with resolution={resolution} ===")
+    grid_points, shape = bz.generate_cartesian_grid(resolution=resolution)
     margin = 0.05  # pad the grid box a little.
     min_corner = grid_points.min(axis=0)
     max_corner = grid_points.max(axis=0)
@@ -253,7 +215,7 @@ def main():
     min_corner = min_corner - margin * extent
     max_corner = max_corner + margin * extent
 
-    if args.no_mask_outside_bz:
+    if not mask_outside_bz:
         print("=== Using full grid, no masking ===")
         print("=== This is the better mode if you are want to use the visualiser.")
         frac_coords = bz.cartesian_to_fractional(grid_points)
@@ -263,18 +225,21 @@ def main():
         points_in_bz, mask = bz.filter_points_in_bz(grid_points)
         frac_coords = bz.cartesian_to_fractional(points_in_bz)
 
-    if args.energy_window is not None:
+    if energy_window is not None:
         band_indices = get_band_indices_from_energy_window(
-            data.band_ranges, args.energy_window
+            data.band_ranges, energy_window, ref_energy=data.fermi_energy
         )
 
-    elif args.bands is not None:
+    elif bands is not None:
         band_indices = get_band_indices_around_fermi(
-            data.band_ranges, data.fermi_energy, args.bands
+            data.band_ranges, data.fermi_energy, bands
         )
-
     else:
         band_indices = list(range(data.num_bands))
+
+    print(
+        f"=== Band indexes selected (starting from 1): {[i + 1 for i in band_indices]} ==="
+    )
 
     scalar_fields_bz = []
     band_names = []
@@ -285,7 +250,7 @@ def main():
             frac_coords, band_index=band_idx
         )
 
-        if args.no_mask_outside_bz:
+        if not mask_outside_bz:
             # Interpolate everywhere, reshape directly
             scalar_field_bz = interpolated_values.reshape(shape)
         else:
@@ -302,7 +267,66 @@ def main():
         band_names.append(f"Band {band_idx + 1}")
 
     export_multiple_scalar_fields_with_edges_to_json(
-        scalar_fields_bz, band_names, bz, min_corner, max_corner, args.output
+        scalar_fields_bz, band_names, bz, min_corner, max_corner, output_fname
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Export BXSF scalar fields and Brillouin zone outline to JSON."
+    )
+    parser.add_argument("bxsf_file", help="Input .bxsf file path")
+    parser.add_argument(
+        "-r",
+        "--resolution",
+        type=int,
+        default=20,
+        help="Grid resolution along each axis (default: 20)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_fname",
+        default="fermidata.json",
+        help="Output JSON filename (default: fermidata.json)",
+    )
+    parser.add_argument(
+        "-b",
+        "--bands",
+        type=int,
+        help="Number of bands around Fermi (default: all bands)",
+    )
+
+    parser.add_argument(
+        "-e",
+        "--energy_window",
+        nargs=2,
+        type=float,
+        metavar=("E_MIN", "E_MAX"),
+        help="Energy window w.r.t. Fermi level [min, max] to select bands. (default: all bands)",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--mask_outside_bz",
+        dest="mask_outside_bz",
+        action="store_true",
+        default=False,
+        help="Mask values outside of the brillioun Zone",
+    )
+
+    args = parser.parse_args()
+
+    if args.bands and args.energy_window:
+        print("CANT USE BOTH BANDS MODE AND ENERGY WINDOW MODE exiting")
+        exit()
+
+    prepare_json(
+        args.bxsf_file,
+        args.energy_window,
+        args.bands,
+        args.resolution,
+        args.output_fname,
+        args.mask_outside_bz,
     )
 
 
