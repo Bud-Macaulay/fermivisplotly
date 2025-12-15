@@ -1,13 +1,12 @@
 // buildFermiGUI.js
 import { colorPalette } from "../utils.js";
 
-// simple function that builds the Legend overlay.
 export function buildFermiGUI({
   containerDiv,
   legendTitle,
   scalarFields,
   meshVisibility,
-  meshes,
+  getMeshes, // <-- function to get current meshes
   renderer,
   scene,
   camera,
@@ -21,14 +20,13 @@ export function buildFermiGUI({
   guiContainer.classList.add("fermi-gui-container");
   Object.assign(guiContainer.style, {
     position: "absolute",
-    top: "10px",
-    right: "10px",
-    background: "rgba(255,255,255,0.95)",
-    padding: "10px",
+    top: "5px",
+    right: "5px",
+    background: "rgba(255, 255, 255, 0.50)",
+    padding: "5px",
     borderRadius: "8px",
     maxHeight: "90%",
     overflowY: "auto",
-    boxShadow: "0px 2px 10px rgba(0,0,0,0.25)",
     zIndex: "10",
     fontFamily: "sans-serif",
     fontSize: "13px",
@@ -79,9 +77,7 @@ export function buildFermiGUI({
 
     const textNode = document.createTextNode(field.name ?? `Band ${idx + 1}`);
 
-    label.appendChild(checkbox);
-    label.appendChild(colorBox);
-    label.appendChild(textNode);
+    label.append(checkbox, colorBox, textNode);
     guiContainer.appendChild(label);
 
     // helper to update opacity
@@ -93,8 +89,12 @@ export function buildFermiGUI({
     // toggle on click
     label.addEventListener("click", () => {
       checkbox.checked = !checkbox.checked;
-      meshes[idx].visible = checkbox.checked;
       meshVisibility[idx] = checkbox.checked;
+
+      // Apply to **current meshes** dynamically
+      const meshes = getMeshes();
+      if (meshes[idx]) meshes[idx].visible = checkbox.checked;
+
       updateLabelOpacity();
       renderer.render(scene, camera);
     });

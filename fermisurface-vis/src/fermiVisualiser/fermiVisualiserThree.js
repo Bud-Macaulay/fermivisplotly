@@ -151,7 +151,7 @@ export class FermiVisualiser {
       legendTitle: this.legendTitle,
       scalarFields: this.dataObject.scalarFields,
       meshVisibility: this.meshVisibility,
-      meshes: this.meshes,
+      getMeshes: () => this.meshes,
       renderer: this.renderer,
       scene: this.scene,
       camera: this.camera,
