@@ -10,6 +10,7 @@ export function buildFermiGUI({
   meshes,
   renderer,
   scene,
+  camera,
 }) {
   // Cleanup old GUI if present
   let oldGUI = containerDiv.querySelector(".fermi-gui-container");
@@ -95,7 +96,7 @@ export function buildFermiGUI({
       meshes[idx].visible = checkbox.checked;
       meshVisibility[idx] = checkbox.checked;
       updateLabelOpacity();
-      renderer.render(scene, renderer.camera);
+      renderer.render(scene, camera);
     });
   });
 

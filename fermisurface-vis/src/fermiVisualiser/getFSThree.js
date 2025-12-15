@@ -38,7 +38,6 @@ function makeThreeMesh({ x, y, z, i, j, k, color, opacity }) {
     color,
     transparent: opacity < 1,
     opacity,
-    shininess: 40,
     // wireframe: true,
     side: THREE.DoubleSide,
     flatShading: false,
@@ -61,6 +60,7 @@ export function getFermiMesh3d({
     scalarFieldInfo;
 
   if (1.1 * E < minval || 0.9 * E > maxval) {
+    console.log(scalarFieldInfo);
     // if outside of range just return a placeholder mesh
     return makeThreeMesh({
       x: 0,

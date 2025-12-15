@@ -8,6 +8,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
     this.meshOpacity = options.meshOpacity ?? 1.0;
+    this.padding = options.padding ?? 2.5;
 
     this.legendTitle = options.legendTitle || "";
     this.containerDiv = containerDiv;
@@ -86,6 +87,9 @@ export class FermiVisualiser {
     this.meshVisibility = [];
     this.buildMeshes();
 
+    // --- Zoom based on bounding box
+    this._autoZoom(this.padding);
+
     // --- BUILD GUI ---
     this._buildGUI();
 
@@ -150,6 +154,29 @@ export class FermiVisualiser {
       meshes: this.meshes,
       renderer: this.renderer,
       scene: this.scene,
+      camera: this.camera,
     });
+  }
+
+  _autoZoom(padding = 1.2) {
+    const bbox = new THREE.Box3().setFromObject(this.scene);
+    const size = bbox.getSize(new THREE.Vector3());
+    const center = bbox.getCenter(new THREE.Vector3());
+    console.log("BBox size:", size, "center:", center);
+
+    const maxDim = Math.max(size.x, size.y, size.z) * 0.5 * padding;
+    console.log("maxDim:", maxDim);
+
+    this.camera.left = -maxDim;
+    this.camera.right = maxDim;
+    this.camera.top = maxDim;
+    this.camera.bottom = -maxDim;
+
+    const dist = maxDim * 3;
+    this.camera.position.set(center.x + dist, center.y + dist, center.z + dist);
+    this.camera.lookAt(center);
+    this.controls.target.copy(center);
+    this.controls.update();
+    this.camera.updateProjectionMatrix();
   }
 }
