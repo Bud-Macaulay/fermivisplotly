@@ -5,7 +5,7 @@ async function runDemo() {
   const data = await fetch("data.json").then((r) => r.json());
 
   const containerDiv = document.getElementById("plot");
-  const vis = new FermiVisualiser(containerDiv, data, { initialE: 4.9 });
+  const vis = new FermiVisualiser(containerDiv, data);
 
   const EInput = document.getElementById("E");
   EInput.value = Math.round(data.fermiEnergy * 10) / 10;
