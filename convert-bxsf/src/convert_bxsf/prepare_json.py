@@ -9,7 +9,7 @@ from .bxsf import parse_bxsf
 
 
 # --- Helper methods to improve the visualiser clipping algorithm --- #
-def deduplicate_planes(faces, planes, tol=1e-6):   
+def deduplicate_planes(faces, planes, tol=1e-6):
     unique_planes = []
     unique_faces = []
     seen = []
@@ -31,6 +31,7 @@ def deduplicate_planes(faces, planes, tol=1e-6):
             unique_faces.append(face)
 
     return unique_faces, unique_planes
+
 
 def estimate_plane_clipping_impact(plane, bbox_corners):
     normal = np.array(plane["normal"])
@@ -74,6 +75,7 @@ def sort_faces_and_planes_by_impact(faces, planes, min_corner, max_corner):
 
     return faces_sorted, planes_sorted
 
+
 def get_band_indices_around_fermi(band_ranges, fermi_energy, num_bands):
     """
     Select bands based on the distance to fermi level according to:
@@ -92,11 +94,28 @@ def get_band_indices_around_fermi(band_ranges, fermi_energy, num_bands):
             ref_energy = emin
         distance = abs(ref_energy - fermi_energy)
         distances.append((distance, i))
-
     distances.sort(key=lambda x: x[0])
     band_indices = [i for _, i in distances[:num_bands]]
     band_indices.sort()
     return band_indices
+
+
+def get_band_indices_from_energy_window(band_ranges, energy_window):
+    """
+    gets all bands that fall cross an energy window at anypoint.
+    """
+    print(f"ENERGY WINDOW: {energy_window}")
+
+    E_min, E_max = energy_window
+
+    band_indices = []
+    for i, (emin, emax) in enumerate(band_ranges):
+        # Check for overlap
+        if emax >= E_min and emin <= E_max:
+            band_indices.append(i)
+
+    return band_indices
+
 
 # --- Main export function --- #
 def export_multiple_scalar_fields_with_edges_to_json(
@@ -112,12 +131,13 @@ def export_multiple_scalar_fields_with_edges_to_json(
 
     scalar_fields_json = []
     for scalar_field_bz, band_name in zip(scalar_fields_bz, band_names):
-
         # Round to 2 decimals
         rounded_array = np.round(scalar_field_bz, 2).flatten(order="C")
 
         # Further compress: convert e.g. 1.0 -> 1
-        rounded_array = [int(x) if x.is_integer() else x for x in rounded_array.tolist()]
+        rounded_array = [
+            int(x) if x.is_integer() else x for x in rounded_array.tolist()
+        ]
 
         # Convert nan to None for JSON null casting
         rounded_list = [None if np.isnan(x) else x for x in rounded_array]
@@ -127,17 +147,19 @@ def export_multiple_scalar_fields_with_edges_to_json(
         minval = float(np.min(numeric_values)) if numeric_values else None
         maxval = float(np.max(numeric_values)) if numeric_values else None
 
-        scalar_fields_json.append({
-            "name": band_name,
-            "scalarFieldInfo": {
-                "dimensions": [Nx, Ny, Nz],
-                "scalarField": rounded_list,
-                "origin": np.round(origin, 6).tolist(),
-                "spacing": np.round(spacing, 6).tolist(),
-                "minval": minval,
-                "maxval": maxval
+        scalar_fields_json.append(
+            {
+                "name": band_name,
+                "scalarFieldInfo": {
+                    "dimensions": [Nx, Ny, Nz],
+                    "scalarField": rounded_list,
+                    "origin": np.round(origin, 6).tolist(),
+                    "spacing": np.round(spacing, 6).tolist(),
+                    "minval": minval,
+                    "maxval": maxval,
+                },
             }
-        })
+        )
 
     # add some (probably too much) geometry information to the data object
     # it equates to a small fraction of the total file but some large perf gains can be made.
@@ -148,8 +170,9 @@ def export_multiple_scalar_fields_with_edges_to_json(
     print(f"Original: {len(faces)} faces, {len(planes)} planes")
     print(f"Deduplicated: {len(faces_unique)} faces, {len(planes_unique)} planes")
     # sorting planes by how much of the grid they will cut processes the most expensive planes first.
-    faces_sorted, planes_sorted = sort_faces_and_planes_by_impact(faces_unique, planes_unique, min_corner, max_corner)
-
+    faces_sorted, planes_sorted = sort_faces_and_planes_by_impact(
+        faces_unique, planes_unique, min_corner, max_corner
+    )
 
     data = {
         "fermiEnergy": fermi_energy,
@@ -159,13 +182,12 @@ def export_multiple_scalar_fields_with_edges_to_json(
             "edges": [list(map(int, edge)) for edge in edges],
             "reciprocalVectors": np.round(bz.bxsf.reciprocal_vectors, 6).tolist(),
             "faces": faces_sorted,
-            "planes": planes_sorted
-        }
+            "planes": planes_sorted,
+        },
     }
 
-
     with open(path, "w") as f:
-        json.dump(data, f, separators=(',', ':'))
+        json.dump(data, f, separators=(",", ":"))
     print(f"JSON export complete: {path}")
 
 
@@ -175,16 +197,32 @@ def main():
     )
     parser.add_argument("bxsf_file", help="Input .bxsf file path")
     parser.add_argument(
-        "-r", "--resolution", type=int, default=20,
-        help="Grid resolution along each axis (default: 20)"
+        "-r",
+        "--resolution",
+        type=int,
+        default=20,
+        help="Grid resolution along each axis (default: 20)",
     )
     parser.add_argument(
-        "-o", "--output", default="fermidata.json",
-        help="Output JSON filename (default: fermidata.json)"
+        "-o",
+        "--output",
+        default="fermidata.json",
+        help="Output JSON filename (default: fermidata.json)",
     )
     parser.add_argument(
-        "-b", "--bands", type=int,
-        help="Number of bands around Fermi (default: all bands)"
+        "-b",
+        "--bands",
+        type=int,
+        help="Number of bands around Fermi (default: all bands)",
+    )
+
+    parser.add_argument(
+        "-e",
+        "--energy_window",
+        nargs=2,
+        type=float,
+        metavar=("E_MIN", "E_MAX"),
+        help="Energy window [min, max] to select bands. (default: all bands)",
     )
 
     parser.add_argument(
@@ -193,11 +231,14 @@ def main():
         dest="no_mask_outside_bz",
         action="store_false",
         default=True,
-        help="Dont mask values outside of the brillioun Zone"
+        help="Dont mask values outside of the brillioun Zone",
     )
 
-
     args = parser.parse_args()
+
+    if args.bands and args.energy_window:
+        print("CANT USE BOTH BANDS MODE AND ENERGY WINDOW MODE exiting")
+        exit()
 
     print("=== Parsing BXSF data ===")
     data = parse_bxsf(args.bxsf_file)
@@ -222,20 +263,27 @@ def main():
         points_in_bz, mask = bz.filter_points_in_bz(grid_points)
         frac_coords = bz.cartesian_to_fractional(points_in_bz)
 
-    if args.bands is None:
-        band_indices = list(range(data.num_bands))
-    else:
+    if args.energy_window is not None:
+        band_indices = get_band_indices_from_energy_window(
+            data.band_ranges, args.energy_window
+        )
+
+    elif args.bands is not None:
         band_indices = get_band_indices_around_fermi(
             data.band_ranges, data.fermi_energy, args.bands
         )
-    print(f"=== Selected bands for export: {', '.join(str(b+1) for b in band_indices)} ===")
+
+    else:
+        band_indices = list(range(data.num_bands))
 
     scalar_fields_bz = []
     band_names = []
 
     for band_idx in band_indices:
-        print(f"\n=== Processing Band {band_idx+1} ===", end="")
-        interpolated_values = bz.interpolate_scalar_field(frac_coords, band_index=band_idx)
+        print(f"\n=== Processing Band {band_idx + 1} ===", end="")
+        interpolated_values = bz.interpolate_scalar_field(
+            frac_coords, band_index=band_idx
+        )
 
         if args.no_mask_outside_bz:
             # Interpolate everywhere, reshape directly
@@ -246,10 +294,12 @@ def main():
             scalar_field_flat[mask] = interpolated_values
             scalar_field_bz = scalar_field_flat.reshape(shape)
 
-
-        print(f" Interpolated stats: min={np.nanmin(interpolated_values)}, max={np.nanmax(interpolated_values)}", end="")
+        print(
+            f" Interpolated stats: min={np.nanmin(interpolated_values)}, max={np.nanmax(interpolated_values)}",
+            end="",
+        )
         scalar_fields_bz.append(scalar_field_bz)
-        band_names.append(f"Band {band_idx+1}")
+        band_names.append(f"Band {band_idx + 1}")
 
     export_multiple_scalar_fields_with_edges_to_json(
         scalar_fields_bz, band_names, bz, min_corner, max_corner, args.output
