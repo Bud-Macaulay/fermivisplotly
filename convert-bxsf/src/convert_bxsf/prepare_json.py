@@ -78,24 +78,32 @@ def sort_faces_and_planes_by_impact(faces, planes, min_corner, max_corner):
 
 def get_band_indices_around_fermi(band_ranges, fermi_energy, num_bands):
     """
-    Select bands based on the distance to fermi level according to:
-    * their midpoint if they cross Fermi level;
+    Select bands based on:
+    * (highest priority) their midpoint if they cross Fermi level;
     * their maximum if they're below Fermi level;
     * their minimum if they're above Fermi level.
     """
-    distances = []
+    crossing_distances = []
+    other_distances = []
 
     for i, (emin, emax) in enumerate(band_ranges):
         if emin <= fermi_energy <= emax:
             ref_energy = 0.5 * (emin + emax)
-        elif emax < fermi_energy:
-            ref_energy = emax
+            dist = abs(ref_energy - fermi_energy)
+            crossing_distances.append((dist, i))
         else:
-            ref_energy = emin
-        distance = abs(ref_energy - fermi_energy)
-        distances.append((distance, i))
-    distances.sort(key=lambda x: x[0])
-    band_indices = [i for _, i in distances[:num_bands]]
+            if emax < fermi_energy:
+                ref_energy = emax
+            else:
+                ref_energy = emin
+            dist = abs(ref_energy - fermi_energy)
+            other_distances.append((dist, i))
+    crossing_distances.sort(key=lambda x: x[0])
+    other_distances.sort(key=lambda x: x[0])
+    band_indices = [i for _, i in crossing_distances[:num_bands]]
+    if len(band_indices) < num_bands:
+        remaining = num_bands - len(band_indices)
+        band_indices += [i for _, i in other_distances[:remaining]]
     band_indices.sort()
     return band_indices
 
@@ -240,6 +248,8 @@ def prepare_json(
     print(
         f"=== Band indexes selected (starting from 1): {[i + 1 for i in band_indices]} ==="
     )
+
+    print(f"=== Fermi energy: {data.fermi_energy} ===")
 
     scalar_fields_bz = []
     band_names = []
