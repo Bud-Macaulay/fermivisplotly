@@ -1,4 +1,4 @@
-import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser.js";
+import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiserThree.js";
 import { debounce } from "./utils.js";
 
 async function runDemo() {
