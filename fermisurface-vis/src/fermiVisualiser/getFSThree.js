@@ -3,6 +3,8 @@ import { marchingCubes } from "./marchingCubes.js";
 
 import { clipMeshToPlanes } from "./clipMeshOpt.js";
 
+import { mergeVertices } from "three-stdlib";
+
 import * as THREE from "three";
 
 function makeThreeMesh({ x, y, z, i, j, k, color, opacity }) {
@@ -30,13 +32,15 @@ function makeThreeMesh({ x, y, z, i, j, k, color, opacity }) {
 
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshPhongMaterial({
     color,
     transparent: opacity < 1,
     opacity,
-    roughness: 0.8,
-    metalness: 0.0,
+    shininess: 40,
+    // wireframe: true,
     side: THREE.DoubleSide,
+    flatShading: false,
+    depthWrite: true,
   });
 
   return new THREE.Mesh(geometry, material);

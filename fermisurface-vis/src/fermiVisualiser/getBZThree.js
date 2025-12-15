@@ -9,6 +9,7 @@ export function getBZEdges(vertices, edges, options = {}) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(edges.length * 2 * 3); // 2 points per edge, 3 coords each
 
+  // some complicated edge positions sorting.
   edges.forEach(([startIdx, endIdx], e) => {
     const start = vertices[startIdx];
     const end = vertices[endIdx];
