@@ -7,9 +7,6 @@ async function runDemo() {
   const containerDiv = document.getElementById("plot");
   const vis = new FermiVisualiser(containerDiv, data, { initialE: 4.9 });
 
-  // could be used to prebuild cache
-  // vis.buildCacheByRange(3, 10, 0.1);
-
   const EInput = document.getElementById("E");
   EInput.value = Math.round(data.fermiEnergy * 10) / 10;
 

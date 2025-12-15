@@ -7,37 +7,21 @@ import { mergeVertices } from "three-stdlib";
 
 import * as THREE from "three";
 
-function makeThreeMesh({ x, y, z, i, j, k, color, opacity }) {
+export function makeThreeMeshFromRaw({ positions, indices, color, opacity }) {
   const geometry = new THREE.BufferGeometry();
-
-  // positions
-  const positions = new Float32Array(x.length * 3);
-  for (let v = 0; v < x.length; v++) {
-    positions[3 * v + 0] = x[v];
-    positions[3 * v + 1] = y[v];
-    positions[3 * v + 2] = z[v];
-  }
 
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
-  // indices (typed-array safe)
-  const index = new Uint32Array(i.length * 3);
-  for (let f = 0; f < i.length; f++) {
-    index[3 * f + 0] = i[f];
-    index[3 * f + 1] = j[f];
-    index[3 * f + 2] = k[f];
-  }
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-  geometry.setIndex(new THREE.BufferAttribute(index, 1));
-
+  mergeVertices(geometry, 0.01);
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshPhongMaterial({
+  const material = new THREE.MeshStandardMaterial({
     color,
     transparent: opacity < 1,
     opacity,
     shininess: 40,
-    // wireframe: true,
     side: THREE.DoubleSide,
     flatShading: false,
     depthWrite: true,
@@ -52,31 +36,41 @@ export function getFermiMesh3d({
   slicedPlanes = [],
   color = "#0000ff",
   meshOpacity = 0.95,
-  meshLighting = {},
   name = "Fermi Surface",
 }) {
+  const raw = getFermiMesh3dRaw({
+    scalarFieldInfo,
+    E,
+    slicedPlanes,
+  });
+
+  if (!raw) {
+    return new THREE.Mesh(); // empty placeholder
+  }
+
+  const mesh = makeThreeMeshFromRaw({
+    positions: raw.positions,
+    indices: raw.indices,
+    color,
+    opacity: meshOpacity,
+  });
+
+  mesh.name = name;
+  return mesh;
+}
+
+export function getFermiMesh3dRaw({ scalarFieldInfo, E, slicedPlanes = [] }) {
   const { dimensions, origin, spacing, minval, maxval, formattedScalarField } =
     scalarFieldInfo;
 
   if (1.1 * E < minval || 0.9 * E > maxval) {
-    // if outside of range just return a placeholder mesh
-    return makeThreeMesh({
-      x: 0,
-      y: 0,
-      z: 0,
-      i: 0,
-      j: 0,
-      k: 0,
-      color,
-      opacity: meshOpacity,
-    });
+    return null;
   }
 
   const [nx, ny, nz] = dimensions;
 
-  // Physical bounds of the grid
   const bounds = [
-    origin, // lower corner
+    origin,
     [
       origin[0] + (nx - 1) * spacing[0],
       origin[1] + (ny - 1) * spacing[1],
@@ -84,29 +78,11 @@ export function getFermiMesh3d({
     ],
   ];
 
-  //   // Get mesh geometry
-  // const mesh = marchingCubes(
-  //   [nx, ny, nz],
-  //   (x, y, z) => {
-  //     const ix = Math.floor((x - origin[0]) / spacing[0]);
-  //     const iy = Math.floor((y - origin[1]) / spacing[1]);
-  //     const iz = Math.floor((z - origin[2]) / spacing[2]);
-
-  //     const clamp = (v, max) => Math.min(Math.max(v, 0), max - 1);
-
-  //     return values[clamp(ix, nx)][clamp(iy, ny)][clamp(iz, nz)] - E;
-  //   },
-  //   bounds
-  // );
-
   const invSpacingX = 1 / spacing[0];
   const invSpacingY = 1 / spacing[1];
   const invSpacingZ = 1 / spacing[2];
   const nyz = ny * nz;
 
-  const t2 = performance.now();
-
-  // Get mesh geometry - equivalent to above but uses a flattened array for fast indexing.
   const mesh = marchingCubes(
     [nx, ny, nz],
     (x, y, z) => {
@@ -115,75 +91,38 @@ export function getFermiMesh3d({
       const iz = ((z - origin[2]) * invSpacingZ) | 0;
 
       const idx = ix * nyz + iy * nz + iz;
-      return formattedScalarField[idx] - E; // This can probably now be the normal scalarField
+      return formattedScalarField[idx] - E;
     },
     bounds
   );
 
-  const t3 = performance.now();
-  console.log(`mC run took: ${t3 - t2} ms`);
-  // TODO - performance improve this - potentially with idk some other shit.
-
-  const planes = slicedPlanes;
   const { positions, cells } = clipMeshToPlanes(
     mesh.positions,
     mesh.cells,
-    planes
+    slicedPlanes
   );
 
-  // old method (no clipping [since approximated at data level.])
-  //const { positions, cells} = mesh;
-
-  const t4 = performance.now();
-  console.log(`mesh Clipping run took: ${t4 - t3} ms - `);
-
-  // const x = positions.map((v) => v[0]);
-  // const y = positions.map((v) => v[1]);
-  // const z = positions.map((v) => v[2]);
-
-  // const i = cells.map((c) => c[0]);
-  // const j = cells.map((c) => c[1]);
-  // const k = cells.map((c) => c[2]);
-
-  // const t4 = performance.now();
-  // console.log(`Extraction and mapping made: ${(t4 - t3).toFixed(6)} ms`);
-
-  // Get x,y,z & i,j,k (equivalent to above but slightly faster)
   const nVertices = positions.length;
   const nFaces = cells.length;
 
-  // Pre-allocate typed arrays
-  const x = new Float32Array(nVertices);
-  const y = new Float32Array(nVertices);
-  const z = new Float32Array(nVertices);
-
+  const positionArray = new Float32Array(nVertices * 3);
   for (let v = 0; v < nVertices; v++) {
     const p = positions[v];
-    x[v] = p[0];
-    y[v] = p[1];
-    z[v] = p[2];
+    positionArray[3 * v + 0] = p[0];
+    positionArray[3 * v + 1] = p[1];
+    positionArray[3 * v + 2] = p[2];
   }
 
-  // Face indices
-  const i = new Uint32Array(nFaces);
-  const j = new Uint32Array(nFaces);
-  const k = new Uint32Array(nFaces);
-
+  const indexArray = new Uint32Array(nFaces * 3);
   for (let f = 0; f < nFaces; f++) {
     const c = cells[f];
-    i[f] = c[0];
-    j[f] = c[1];
-    k[f] = c[2];
+    indexArray[3 * f + 0] = c[0];
+    indexArray[3 * f + 1] = c[1];
+    indexArray[3 * f + 2] = c[2];
   }
 
-  return makeThreeMesh({
-    x,
-    y,
-    z,
-    i,
-    j,
-    k,
-    color,
-    opacity: meshOpacity,
-  });
+  return {
+    positions: positionArray,
+    indices: indexArray,
+  };
 }

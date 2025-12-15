@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { getFermiMesh3d } from "./getFSThree.js";
 import { getBZEdges, getBZVectors, makeOriginSphere } from "./getBZThree.js";
+import { buildFermiGUI } from "./fermiGuiThree.js";
 import { colorPalette } from "../utils.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
@@ -8,9 +9,18 @@ export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
     this.meshOpacity = options.meshOpacity ?? 1.0;
 
-    this.legendTitle = options.legendTitle || "Toggle Bands";
+    this.legendTitle = options.legendTitle || "";
     this.containerDiv = containerDiv;
     this.dataObject = dataObject;
+
+    if (options.noClip) {
+      this.BZplanes = [];
+    } else {
+      this.BZplanes = dataObject.brillouinZone.planes;
+    }
+
+    this.cache = {};
+
     const { vertices, edges } = this.dataObject.brillouinZone;
     this.currentE = options.initialE ?? dataObject.fermiEnergy;
 
@@ -45,6 +55,7 @@ export class FermiVisualiser {
     // Lighting
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.castShadow = true;
     dir.position.set(1, 1, 1);
     this.scene.add(dir);
 
@@ -78,137 +89,45 @@ export class FermiVisualiser {
     // --- BUILD GUI ---
     this._buildGUI();
 
-    this.render();
+    this.renderer.render(this.scene, this.camera);
     this.renderer.sortObjects = true; // helps stop z-fighting
   }
 
-  buildMeshes() {
-    // Remove previous meshes
+  buildMeshes(E = this.currentE) {
+    // remove old meshes
     this.meshes.forEach((mesh) => this.scene.remove(mesh));
 
-    // Add new meshes
-    this.meshes = this.dataObject.scalarFields.map((field, idx) => {
-      const mesh = getFermiMesh3d({
-        scalarFieldInfo: field.scalarFieldInfo,
-        E: this.currentE,
-        slicedPlanes: this.dataObject.brillouinZone.planes,
-        color: colorPalette[idx % colorPalette.length],
-        meshOpacity: this.meshOpacity,
-      });
-      mesh.visible = this.meshVisibility[idx] ?? true;
-      this.scene.add(mesh);
-      return mesh;
-    });
-  }
+    const roundedE = parseFloat(E.toFixed(3));
+    this.currentE = roundedE;
 
-  _buildGUI() {
-    // Remove old GUI if present
-    if (this.guiContainer) this.containerDiv.removeChild(this.guiContainer);
-
-    // Create container
-    this.guiContainer = document.createElement("div");
-    Object.assign(this.guiContainer.style, {
-      position: "absolute",
-      top: "10px",
-      right: "10px",
-      background: "rgba(255,255,255,0.95)",
-      padding: "10px",
-      borderRadius: "8px",
-      maxHeight: "90%",
-      overflowY: "auto",
-      boxShadow: "0px 2px 10px rgba(0,0,0,0.25)",
-      zIndex: "10",
-      fontFamily: "sans-serif",
-      fontSize: "13px",
-    });
-
-    this.containerDiv.style.position = "relative";
-    this.containerDiv.appendChild(this.guiContainer);
-
-    // Title
-    if (this.legendTitle) {
-      const titleEl = document.createElement("div");
-      titleEl.textContent = this.legendTitle;
-      Object.assign(titleEl.style, {
-        fontWeight: "bold",
-        fontSize: "14px",
-        marginBottom: "8px",
-        textAlign: "center",
-      });
-      this.guiContainer.appendChild(titleEl);
+    // get from cache or compute
+    let meshes = this.cache[roundedE];
+    if (!meshes) {
+      meshes = this.dataObject.scalarFields.map((field, idx) =>
+        getFermiMesh3d({
+          scalarFieldInfo: field.scalarFieldInfo,
+          E: roundedE,
+          slicedPlanes: this.BZplanes,
+          color: colorPalette[idx % colorPalette.length],
+          meshOpacity: this.meshOpacity,
+          name: field.name ?? `Band ${idx + 1}`,
+        })
+      );
+      this.cache[roundedE] = meshes;
     }
 
-    // Band toggles
-    this.dataObject.scalarFields.forEach((field, idx) => {
-      const label = document.createElement("label");
-      Object.assign(label.style, {
-        display: "flex",
-        alignItems: "center",
-        marginBottom: "5px",
-        cursor: "pointer",
-        transition: "opacity 0.1s",
-      });
-
-      // checkbox (hidden)
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = this.meshVisibility[idx] ?? true;
-      checkbox.style.display = "none";
-
-      // color box
-      const colorBox = document.createElement("span");
-      colorBox.style.backgroundColor = colorPalette[idx % colorPalette.length];
-      Object.assign(colorBox.style, {
-        display: "inline-block",
-        width: "12px",
-        height: "12px",
-        marginRight: "5px",
-        border: "1px solid #999",
-        borderRadius: "2px",
-      });
-
-      // name text
-      const textNode = document.createTextNode(field.name ?? `Band ${idx + 1}`);
-
-      // assemble
-      label.appendChild(checkbox);
-      label.appendChild(colorBox);
-      label.appendChild(textNode);
-      this.guiContainer.appendChild(label);
-
-      // helper to update opacity
-      const updateLabelOpacity = () => {
-        label.style.opacity = checkbox.checked ? "1.0" : "0.4";
-      };
-      updateLabelOpacity();
-
-      // toggle on click
-      label.addEventListener("click", () => {
-        checkbox.checked = !checkbox.checked;
-        this.meshes[idx].visible = checkbox.checked;
-        this.meshVisibility[idx] = checkbox.checked;
-        updateLabelOpacity();
-        this.renderer.render(this.scene, this.camera);
-      });
+    // apply visibility
+    meshes.forEach((mesh, idx) => {
+      mesh.visible = this.meshVisibility[idx] ?? true;
+      this.scene.add(mesh);
     });
+
+    this.meshes = meshes;
+    this.renderer.render(this.scene, this.camera);
   }
 
   update(E) {
-    this.currentE = E;
-    // Save current visibility state
-    this.meshVisibility = this.meshes.map((mesh) => mesh.visible);
-
-    // Rebuild meshes at new energy
-    this.buildMeshes();
-
-    // Rebuild GUI (checkbox states preserved)
-    this._buildGUI();
-
-    this.renderer.render(this.scene, this.camera);
-  }
-
-  render() {
-    this.renderer.render(this.scene, this.camera);
+    this.buildMeshes(E);
   }
 
   _convertNullsToInf(scalarFieldInfo) {
@@ -220,5 +139,17 @@ export class FermiVisualiser {
         scalarField[i] === null ? Infinity : scalarField[i];
     }
     scalarFieldInfo.formattedScalarField = formattedScalarField;
+  }
+
+  _buildGUI() {
+    this.guiContainer = buildFermiGUI({
+      containerDiv: this.containerDiv,
+      legendTitle: this.legendTitle,
+      scalarFields: this.dataObject.scalarFields,
+      meshVisibility: this.meshVisibility,
+      meshes: this.meshes,
+      renderer: this.renderer,
+      scene: this.scene,
+    });
   }
 }
