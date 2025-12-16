@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import logging
 
 import numpy as np
 
 from .BrillouinZone import BrillouinZoneData
 from .bxsf import parse_bxsf
+
+logger = logging.getLogger(__name__)
 
 
 # --- Helper methods to improve the visualiser clipping algorithm --- #
@@ -117,7 +120,7 @@ def get_band_indices_from_energy_window(band_ranges, energy_window, ref_energy=0
     E_min += ref_energy
     E_max += ref_energy
 
-    print(f"ENERGY WINDOW: {(E_min, E_max)}")
+    logger.info(f"ENERGY WINDOW: {(E_min, E_max)}")
 
     band_indices = []
     for i, (emin, emax) in enumerate(band_ranges):
@@ -138,7 +141,7 @@ def export_multiple_scalar_fields_with_edges_to_json(
     path,
     precision,
 ):
-    print("\n=== Exporting multiple scalar fields and BZ outline edges to JSON ===")
+    logger.info("=== Exporting multiple scalar fields and BZ outline edges to JSON ===")
 
     Nz, Ny, Nx = scalar_fields_bz[0].shape
     spacing = (max_corner - min_corner) / np.array([Nx - 1, Ny - 1, Nz - 1])
@@ -184,8 +187,8 @@ def export_multiple_scalar_fields_with_edges_to_json(
     _v, faces, planes = bz.get_bz_faces_with_planes()
     # deduplicating equivalent planes reduces mesh cleavage
     faces_unique, planes_unique = deduplicate_planes(faces, planes)
-    print(f"Original: {len(faces)} faces, {len(planes)} planes")
-    print(f"Deduplicated: {len(faces_unique)} faces, {len(planes_unique)} planes")
+    logger.info(f"Original: {len(faces)} faces, {len(planes)} planes")
+    logger.info(f"Deduplicated: {len(faces_unique)} faces, {len(planes_unique)} planes")
     # sorting planes by how much of the grid they will cut processes the most expensive planes first.
     faces_sorted, planes_sorted = sort_faces_and_planes_by_impact(
         faces_unique, planes_unique, min_corner, max_corner
@@ -205,7 +208,7 @@ def export_multiple_scalar_fields_with_edges_to_json(
 
     with open(path, "w") as f:
         json.dump(data, f, separators=(",", ":"))
-    print(f"JSON export complete: {path}")
+    logger.info(f"JSON export complete: {path}")
 
 
 def prepare_json(
@@ -214,14 +217,14 @@ def prepare_json(
     bands=None,
     resolution=20,
     precision=4,
-    output_fname="fermidata.json",
+    output_path="fermidata.json",
     mask_outside_bz=False,
 ):
-    print("=== Parsing BXSF data ===")
+    logger.info("=== Parsing BXSF data ===")
     data = parse_bxsf(bxsf_file)
     bz = BrillouinZoneData(data)
 
-    print(f"=== Generating grid with resolution={resolution} ===")
+    logger.info(f"=== Generating grid with resolution={resolution} ===")
     grid_points, shape = bz.generate_cartesian_grid(resolution=resolution)
     margin = 0.05  # pad the grid box a little.
     min_corner = grid_points.min(axis=0)
@@ -231,12 +234,14 @@ def prepare_json(
     max_corner = max_corner + margin * extent
 
     if not mask_outside_bz:
-        print("=== Using full grid, no masking ===")
-        print("=== This is the better mode if you are want to use the visualiser.")
+        logger.info("=== Using full grid, no masking ===")
+        logger.info(
+            "=== This is the better mode if you are want to use the visualiser."
+        )
         frac_coords = bz.cartesian_to_fractional(grid_points)
     else:
-        print("=== Filtering points inside BZ ===")
-        print("=== This effectively cleaves (poorly) at the data level")
+        logger.info("=== Filtering points inside BZ ===")
+        logger.info("=== This effectively cleaves (poorly) at the data level")
         points_in_bz, mask = bz.filter_points_in_bz(grid_points)
         frac_coords = bz.cartesian_to_fractional(points_in_bz)
 
@@ -252,17 +257,17 @@ def prepare_json(
     else:
         band_indices = list(range(data.num_bands))
 
-    print(
+    logger.info(
         f"=== Band indexes selected (starting from 1): {[i + 1 for i in band_indices]} ==="
     )
 
-    print(f"=== Fermi energy: {data.fermi_energy} ===")
+    logger.info(f"=== Fermi energy: {data.fermi_energy} ===")
 
     scalar_fields_bz = []
     band_names = []
 
     for band_idx in band_indices:
-        print(f"\n=== Processing Band {band_idx + 1} ===", end="")
+        logger.info(f"=== Processing Band {band_idx + 1} ===")
         interpolated_values = bz.interpolate_scalar_field(
             frac_coords, band_index=band_idx
         )
@@ -276,9 +281,8 @@ def prepare_json(
             scalar_field_flat[mask] = interpolated_values
             scalar_field_bz = scalar_field_flat.reshape(shape)
 
-        print(
-            f" Interpolated stats: min={np.nanmin(interpolated_values)}, max={np.nanmax(interpolated_values)}",
-            end="",
+        logger.info(
+            f" Interpolated stats: min={np.nanmin(interpolated_values)}, max={np.nanmax(interpolated_values)}"
         )
         scalar_fields_bz.append(scalar_field_bz)
         band_names.append(f"Band {band_idx + 1}")
@@ -289,7 +293,7 @@ def prepare_json(
         bz,
         min_corner,
         max_corner,
-        output_fname,
+        output_path,
         precision,
     )
 
@@ -308,7 +312,7 @@ def main():
     )
     parser.add_argument(
         "-o",
-        "--output_fname",
+        "--output_path",
         default="fermidata.json",
         help="Output JSON filename (default: fermidata.json)",
     )
@@ -347,8 +351,10 @@ def main():
 
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
     if args.bands and args.energy_window:
-        print("CANT USE BOTH BANDS MODE AND ENERGY WINDOW MODE exiting")
+        logger.info("CANT USE BOTH BANDS MODE AND ENERGY WINDOW MODE exiting")
         exit()
 
     prepare_json(
@@ -357,7 +363,7 @@ def main():
         args.bands,
         args.resolution,
         args.precision,
-        args.output_fname,
+        args.output_path,
         args.mask_outside_bz,
     )
 
