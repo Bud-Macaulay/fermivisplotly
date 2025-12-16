@@ -165,14 +165,12 @@ export class FermiVisualiser {
     });
   }
 
-  _autoZoom(padding = 1.2) {
+  _autoZoom(padding = 2.5) {
     const bbox = new THREE.Box3().setFromObject(this.scene);
     const size = bbox.getSize(new THREE.Vector3());
     const center = bbox.getCenter(new THREE.Vector3());
-    console.log("BBox size:", size, "center:", center);
 
-    const maxDim = Math.max(size.x, size.y, size.z) * 0.5 * padding;
-    console.log("maxDim:", maxDim);
+    const maxDim = Math.max(size.x, size.y, size.z) * 0.5 * this.padding;
 
     this.camera.left = -maxDim;
     this.camera.right = maxDim;

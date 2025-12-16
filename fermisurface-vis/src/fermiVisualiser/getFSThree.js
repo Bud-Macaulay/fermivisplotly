@@ -7,6 +7,8 @@ import { mergeVertices } from "three-stdlib";
 
 import * as THREE from "three";
 
+// TODO - investigate converting this whole method to the Three.JS Marching Cubes algo...
+// Requires a full rewrite but may be super performant.
 function toThreeClippingPlanes(planes) {
   return planes.map(
     (p) =>
@@ -79,8 +81,6 @@ function makeThreeMesh({
     clipIntersection: false,
   });
 
-  console.log(geometry);
-
   return new THREE.Mesh(geometry, material);
 }
 
@@ -97,7 +97,6 @@ export function getFermiMesh3d({
     scalarFieldInfo;
 
   if (1.1 * E < minval || 0.9 * E > maxval) {
-    console.log(scalarFieldInfo);
     // if outside of range just return a placeholder mesh
     return makeThreeMesh({
       x: 0,
