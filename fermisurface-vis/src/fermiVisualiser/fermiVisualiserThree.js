@@ -7,6 +7,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
+    this.gpuClipping = options.gpuClipping ?? true;
     this.meshOpacity = options.meshOpacity ?? 1.0;
     this.padding = options.padding ?? 2.5;
 
@@ -51,6 +52,9 @@ export class FermiVisualiser {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(window.devicePixelRatio);
+
+    this.renderer.localClippingEnabled = true;
+
     containerDiv.appendChild(this.renderer.domElement);
 
     // Lighting
@@ -115,6 +119,7 @@ export class FermiVisualiser {
           color: colorPalette[idx % colorPalette.length],
           meshOpacity: this.meshOpacity,
           name: field.name ?? `Band ${idx + 1}`,
+          gpuClipping: this.gpuClipping,
         })
       );
       this.cache[roundedE] = meshes;
