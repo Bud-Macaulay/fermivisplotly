@@ -6,10 +6,13 @@
   </head>
   <body>
     <div id="controls">
-      <label
-        >E (isosurface choice): <input type="number" id="E" step="0.05" />
+      <label>
+        E (isosurface choice):
+        <input type="range" id="Eslider" min="0" max="2" step="1" />
+        <span id="Elabel"></span>
       </label>
     </div>
+
     <div
       id="wrapperdiv"
       style="height: 50vh; width: 50vh; border: 4px solid purple"

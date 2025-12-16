@@ -89,7 +89,7 @@ export function getFermiMesh3d({
   E,
   slicedPlanes = [],
   color = "#0000ff",
-  meshOpacity = 0.95,
+  meshOpacity = 1.0,
   gpuClipping = false,
   tolerancePercent = 1e-3, // no merge tris
 }) {
@@ -165,9 +165,6 @@ export function getFermiMesh3d({
       slicedPlanes
     ));
   }
-
-  const t4 = performance.now();
-  console.log(`mesh Clipping run took: ${t4 - t3} ms`);
 
   const nVertices = positions.length;
   const nFaces = cells.length;

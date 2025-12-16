@@ -7,12 +7,33 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
+    // options defined here so control is known.
     this.gpuClipping = options.gpuClipping ?? true;
-    this.mergeTolerance = options.mergeTolerance ?? 1e-3;
+    // tri faces to merge (normalised to bounding box for [as %])
+    this.mergeTolerance = options.mergeTolerance ?? 0.1;
     this.meshOpacity = options.meshOpacity ?? 1.0;
     this.padding = options.padding ?? 2.5;
 
+    // optional values to initialise and add to cache.
+    this.precacheValues = options.precacheValues ?? [
+      dataObject.fermiEnergy - 0.05,
+      dataObject.fermiEnergy + 0.05,
+    ];
+    // used to determine how accurate the values when doing cache compares are.
+    this.cachePrecision = options.cachePrecision ?? 3;
+
+    // camera and lighting options
+    this.ambientLightColor = options.ambientLightColor ?? 0xffffff;
+    this.ambientLightValue = options.ambientLightValue ?? 0.6;
+    this.directionalLightColor = options.directionalLightColor ?? 0xffffff;
+    this.directionalLightValue = options.directionalLightValue ?? 0.6;
+    this.directionalLightPosition = options.directionalLightPosition ?? [
+      1, 1, 1,
+    ];
+
+    // optional title for the legend
     this.legendTitle = options.legendTitle || "";
+
     this.containerDiv = containerDiv;
     this.dataObject = dataObject;
 
@@ -59,10 +80,16 @@ export class FermiVisualiser {
     containerDiv.appendChild(this.renderer.domElement);
 
     // Lighting
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    this.scene.add(
+      new THREE.AmbientLight(this.ambientLightColor, this.ambientLightValue)
+    );
+    const dir = new THREE.DirectionalLight(
+      this.directionalLightColor,
+      this.ambientLightValue
+    );
+
     dir.castShadow = true;
-    dir.position.set(1, 1, 1);
+    dir.position.set(...this.directionalLightPosition);
     this.scene.add(dir);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -100,13 +127,35 @@ export class FermiVisualiser {
 
     this.renderer.render(this.scene, this.camera);
     this.renderer.sortObjects = true; // helps stop z-fighting
+
+    // --- PRECOMPUTE INIT ARRAY ---
+    if (this.precacheValues && this.precacheValues.length) {
+      for (const E of this.precacheValues) {
+        const roundedE = parseFloat(E.toFixed(this.cachePrecision));
+        if (!this.cache[roundedE]) {
+          const meshes = this.dataObject.scalarFields.map((field, idx) =>
+            getFermiMesh3d({
+              scalarFieldInfo: field.scalarFieldInfo,
+              E: roundedE,
+              slicedPlanes: this.BZplanes,
+              color: colorPalette[idx % colorPalette.length],
+              meshOpacity: this.meshOpacity,
+              name: field.name ?? `Band ${idx + 1}`,
+              gpuClipping: this.gpuClipping,
+              tolerancePercent: this.mergeTolerance,
+            })
+          );
+          this.cache[roundedE] = meshes;
+        }
+      }
+    }
   }
 
   buildMeshes(E = this.currentE) {
     // remove old meshes
     this.meshes.forEach((mesh) => this.scene.remove(mesh));
 
-    const roundedE = parseFloat(E.toFixed(3));
+    const roundedE = parseFloat(E.toFixed(this.cachePrecision));
     this.currentE = roundedE;
 
     // get from cache or compute

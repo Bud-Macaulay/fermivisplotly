@@ -1,5 +1,4 @@
 import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiserThree.js";
-import { debounce } from "./utils.js";
 
 async function runDemo() {
   const data = await fetch("data.json").then((r) => r.json());
@@ -7,15 +6,26 @@ async function runDemo() {
   const containerDiv = document.getElementById("plot");
   const vis = new FermiVisualiser(containerDiv, data);
 
-  const EInput = document.getElementById("E");
-  EInput.value = Math.round(data.fermiEnergy * 10) / 10;
+  const Eslider = document.getElementById("Eslider");
+  const Elabel = document.getElementById("Elabel");
 
-  const onUserInput = () => {
-    const E = parseFloat(EInput.value);
+  // mapping slider values to actual E values
+  const Emap = [
+    data.fermiEnergy - 0.05,
+    data.fermiEnergy,
+    data.fermiEnergy + 0.05,
+  ];
+
+  // set initial slider position to "Efermi"
+  Eslider.value = 1;
+  Elabel.textContent = Emap[1].toFixed(5);
+
+  Eslider.addEventListener("input", () => {
+    const idx = parseInt(Eslider.value);
+    const E = Emap[idx];
+    Elabel.textContent = E.toFixed(5);
     vis.update(E);
-  };
-
-  EInput.addEventListener("input", onUserInput);
+  });
 }
 
 runDemo();
