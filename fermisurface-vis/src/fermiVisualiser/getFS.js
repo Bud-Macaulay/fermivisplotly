@@ -1,44 +1,113 @@
 import { hexToRgba } from "../utils.js";
+import { marchingCubes } from "./marchingCubes.js";
 
 import { clipMeshToPlanes } from "./clipMeshOpt.js";
 
-// Own hopefully fast and bug free implementation
-//  (about 10-20% faster than the isosurface impl.)
-// TODO - look into whether we can run a wasm module to do this.
-// might be difficult with the time to init wasm modules.
-import { marchingCubes } from "./marchingCubes.js";
-// import { marchingCubes } from "isosurface";
+import { mergeVertices } from "three-stdlib";
+
+import * as THREE from "three";
+
+// TODO - investigate converting this whole method to the Three.JS Marching Cubes algo...
+// Requires a full rewrite but may be super performant.
+function toThreeClippingPlanes(planes) {
+  return planes.map(
+    (p) =>
+      new THREE.Plane(
+        new THREE.Vector3(p.normal[0], p.normal[1], p.normal[2]),
+        p.D
+      )
+  );
+}
+
+function makeThreeMesh({
+  x,
+  y,
+  z,
+  i,
+  j,
+  k,
+  color,
+  opacity,
+  // merge tri normals [0.1 seems like a nice smoothing...]
+  tolerancePercent = 0.1,
+  clippingPlanes = [],
+}) {
+  let geometry = new THREE.BufferGeometry();
+
+  // positions
+  const positions = new Float32Array(x.length * 3);
+  for (let v = 0; v < x.length; v++) {
+    positions[3 * v + 0] = x[v];
+    positions[3 * v + 1] = y[v];
+    positions[3 * v + 2] = z[v];
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  // indices
+  const index = new Uint32Array(i.length * 3);
+  for (let f = 0; f < i.length; f++) {
+    index[3 * f + 0] = i[f];
+    index[3 * f + 1] = j[f];
+    index[3 * f + 2] = k[f];
+  }
+
+  // align tri faces, smooth and calculate norms.
+  geometry.setIndex(new THREE.BufferAttribute(index, 1));
+
+  // compute bounding box for relative tolerance
+  const bbox = new THREE.Box3().setFromBufferAttribute(
+    geometry.getAttribute("position")
+  );
+  const size = bbox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+
+  const tolerance = (tolerancePercent / 100) * maxDim;
+
+  const mergedGeometry = mergeVertices(geometry, tolerance);
+  geometry = mergedGeometry;
+  geometry.computeVertexNormals();
+
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    transparent: opacity < 1,
+    opacity,
+    // wireframe: true,
+    side: THREE.DoubleSide,
+    flatShading: false,
+    depthWrite: true,
+    clippingPlanes: clippingPlanes.length ? clippingPlanes : [],
+    // docs says keep Intersection true but that has the reverse behaviour?
+    clipIntersection: false,
+  });
+
+  return new THREE.Mesh(geometry, material);
+}
 
 export function getFermiMesh3d({
   scalarFieldInfo,
   E,
   slicedPlanes = [],
   color = "#0000ff",
-  meshOpacity = 0.95,
-  meshLighting = {},
-  name = "Fermi Surface",
+  meshOpacity = 1.0,
+  gpuClipping = false,
+  tolerancePercent = 0.1, // no merge tris
 }) {
   const { dimensions, origin, spacing, minval, maxval, formattedScalarField } =
     scalarFieldInfo;
 
   if (1.1 * E < minval || 0.9 * E > maxval) {
     // if outside of range just return a placeholder mesh
-    return {
-      type: "mesh3d",
-      x: [0],
-      y: [0],
-      z: [0],
-      i: [0],
-      j: [0],
-      k: [0],
+    return makeThreeMesh({
+      x: 0,
+      y: 0,
+      z: 0,
+      i: 0,
+      j: 0,
+      k: 0,
       color,
       opacity: meshOpacity,
-      flatshading: true,
-      name,
-      hoverinfo: "skip",
-      showlegend: true,
-      lighting: {},
-    };
+    });
   }
 
   const [nx, ny, nz] = dimensions;
@@ -53,21 +122,6 @@ export function getFermiMesh3d({
     ],
   ];
 
-  //   // Get mesh geometry
-  // const mesh = marchingCubes(
-  //   [nx, ny, nz],
-  //   (x, y, z) => {
-  //     const ix = Math.floor((x - origin[0]) / spacing[0]);
-  //     const iy = Math.floor((y - origin[1]) / spacing[1]);
-  //     const iz = Math.floor((z - origin[2]) / spacing[2]);
-
-  //     const clamp = (v, max) => Math.min(Math.max(v, 0), max - 1);
-
-  //     return values[clamp(ix, nx)][clamp(iy, ny)][clamp(iz, nz)] - E;
-  //   },
-  //   bounds
-  // );
-
   const invSpacingX = 1 / spacing[0];
   const invSpacingY = 1 / spacing[1];
   const invSpacingZ = 1 / spacing[2];
@@ -75,53 +129,46 @@ export function getFermiMesh3d({
 
   const t2 = performance.now();
 
-  // Get mesh geometry - equivalent to above but uses a flattened array for fast indexing.
+  // Get mesh geometry - (uses some array tricks for faster indexing.
   const mesh = marchingCubes(
     [nx, ny, nz],
     (x, y, z) => {
       const ix = ((x - origin[0]) * invSpacingX) | 0;
       const iy = ((y - origin[1]) * invSpacingY) | 0;
       const iz = ((z - origin[2]) * invSpacingZ) | 0;
-
       const idx = ix * nyz + iy * nz + iz;
-      return formattedScalarField[idx] - E; // This can probably now be the normal scalarField
+      return formattedScalarField[idx] - E;
     },
     bounds
   );
 
   const t3 = performance.now();
   console.log(`mC run took: ${t3 - t2} ms`);
-  // TODO - performance improve this - potentially with idk some other shit.
 
-  const planes = slicedPlanes;
-  const { positions, cells } = clipMeshToPlanes(
-    mesh.positions,
-    mesh.cells,
-    planes
-  );
+  let positions,
+    cells,
+    clippingPlanes = [];
 
-  // old method (no clipping [since approximated at data level.])
-  //const { positions, cells} = mesh;
+  // TODO: test with denser grids,
+  // if marchingCubes becomes RDS, then this optimisation is useless..
+  // Could also investigate clipping cpu clipping off the main thread to precalc the surface.
+  if (gpuClipping && slicedPlanes.length) {
+    // GPU clipping - faster calc, laggier display
+    clippingPlanes = toThreeClippingPlanes(slicedPlanes);
+    positions = mesh.positions;
+    cells = mesh.cells;
+  } else {
+    // old CPU clipping - slower calc, smoother display
+    ({ positions, cells } = clipMeshToPlanes(
+      mesh.positions,
+      mesh.cells,
+      slicedPlanes
+    ));
+  }
 
-  const t4 = performance.now();
-  console.log(`mesh Clipping run took: ${t4 - t3} ms - `);
-
-  // const x = positions.map((v) => v[0]);
-  // const y = positions.map((v) => v[1]);
-  // const z = positions.map((v) => v[2]);
-
-  // const i = cells.map((c) => c[0]);
-  // const j = cells.map((c) => c[1]);
-  // const k = cells.map((c) => c[2]);
-
-  // const t4 = performance.now();
-  // console.log(`Extraction and mapping made: ${(t4 - t3).toFixed(6)} ms`);
-
-  // Get x,y,z & i,j,k (equivalent to above but slightly faster)
   const nVertices = positions.length;
   const nFaces = cells.length;
 
-  // Pre-allocate typed arrays
   const x = new Float32Array(nVertices);
   const y = new Float32Array(nVertices);
   const z = new Float32Array(nVertices);
@@ -133,7 +180,6 @@ export function getFermiMesh3d({
     z[v] = p[2];
   }
 
-  // Face indices
   const i = new Uint32Array(nFaces);
   const j = new Uint32Array(nFaces);
   const k = new Uint32Array(nFaces);
@@ -145,8 +191,7 @@ export function getFermiMesh3d({
     k[f] = c[2];
   }
 
-  return {
-    type: "mesh3d",
+  return makeThreeMesh({
     x,
     y,
     z,
@@ -155,10 +200,7 @@ export function getFermiMesh3d({
     k,
     color,
     opacity: meshOpacity,
-    flatshading: true,
-    name,
-    hoverinfo: "skip",
-    showlegend: true,
-    lighting: meshLighting,
-  };
+    clippingPlanes,
+    tolerancePercent,
+  });
 }

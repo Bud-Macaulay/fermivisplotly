@@ -1,142 +1,69 @@
-export function getBZTraces(vertices, edges, options = {}) {
-  const { color = "black", width = 2.5, name = "" } = options;
+import * as THREE from "three";
 
-  const x = [];
-  const y = [];
-  const z = [];
+/**
+ * Build the Brillouin zone edges as a LineSegments object
+ */
+export function getBZEdges(vertices, edges, options = {}) {
+  const { color = 0x000000, width = 1 } = options;
 
-  edges.forEach(([startIdx, endIdx]) => {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(edges.length * 2 * 3); // 2 points per edge, 3 coords each
+
+  // some complicated edge positions sorting.
+  edges.forEach(([startIdx, endIdx], e) => {
     const start = vertices[startIdx];
     const end = vertices[endIdx];
-    x.push(start[0], end[0], null);
-    y.push(start[1], end[1], null);
-    z.push(start[2], end[2], null);
+    positions[6 * e + 0] = start[0];
+    positions[6 * e + 1] = start[1];
+    positions[6 * e + 2] = start[2];
+    positions[6 * e + 3] = end[0];
+    positions[6 * e + 4] = end[1];
+    positions[6 * e + 5] = end[2];
   });
 
-  return {
-    type: "scatter3d",
-    mode: "lines",
-    x,
-    y,
-    z,
-    line: {
-      color,
-      width,
-    },
-    name,
-    hoverinfo: "skip",
-  };
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.LineBasicMaterial({ color, linewidth: width });
+
+  return new THREE.LineSegments(geometry, material);
 }
 
-// TODO - extend this to be me more flexible + less ugly
-export function getBZVectorTraces(
+/**
+ * Build reciprocal lattice vectors as ArrowHelpers
+ */
+export function getBZVectors(
   reciprocalVectors,
-  axisColors = ["#2ca02c", "#1f77b4", "#d62728"]
+  axisColors = [0x2ca02c, 0x1f77b4, 0xd62728]
 ) {
-  const traces = [];
+  const arrows = [];
 
-  for (let i = 0; i < reciprocalVectors.length; i++) {
-    const v = reciprocalVectors[i];
-    const [vx, vy, vz] = v;
+  reciprocalVectors.forEach((v, idx) => {
+    const dir = new THREE.Vector3(v[0], v[1], v[2]).normalize();
+    const length = 0.95 * new THREE.Vector3(...v).length();
+    const color = axisColors[idx % axisColors.length];
 
-    traces.push({
-      type: "scatter3d",
-      mode: "lines",
-      x: [0, 0.95 * vx],
-      y: [0, 0.95 * vy],
-      z: [0, 0.95 * vz],
-      line: {
-        width: 6,
-        color: axisColors[i],
-      },
-      hoverinfo: "skip",
-      showlegend: false,
-    });
+    const arrow = new THREE.ArrowHelper(
+      dir,
+      new THREE.Vector3(0, 0, 0),
+      length,
+      color,
+      0.1 * length,
+      0.05 * length
+    );
+    arrows.push(arrow);
+  });
 
-    traces.push({
-      type: "cone",
-      x: [vx],
-      y: [vy],
-      z: [vz],
-      u: [vx],
-      v: [vy],
-      w: [vz],
-      sizeref: 0.1,
-      anchor: "tip",
-      hoverinfo: "skip",
-      showscale: false,
-      colorscale: [
-        ["0.0", axisColors[i]],
-        ["1.0", axisColors[i]],
-      ],
-    });
-  }
-
-  // add the origin sphere
-  traces.push(makeOriginSphere());
-
-  return traces;
+  return arrows;
 }
 
-// Creates a shaded sphere as a Plotly surface trace
+/**
+ * Build a small sphere at the origin
+ */
 export function makeOriginSphere({
   radius = 0.04,
-  color = "#999",
-  resolution = 200,
+  color = 0x999999,
+  resolution = 16,
 } = {}) {
-  const theta = [];
-  const phi = [];
-
-  for (let i = 0; i <= resolution; i++) {
-    theta.push((i / resolution) * Math.PI);
-    phi.push((i / resolution) * 2 * Math.PI);
-  }
-
-  const x = [];
-  const y = [];
-  const z = [];
-
-  for (let i = 0; i <= resolution; i++) {
-    const rowX = [];
-    const rowY = [];
-    const rowZ = [];
-
-    for (let j = 0; j <= resolution; j++) {
-      const t = theta[i];
-      const p = phi[j];
-
-      rowX.push(radius * Math.sin(t) * Math.cos(p));
-      rowY.push(radius * Math.sin(t) * Math.sin(p));
-      rowZ.push(radius * Math.cos(t));
-    }
-
-    x.push(rowX);
-    y.push(rowY);
-    z.push(rowZ);
-  }
-
-  return {
-    type: "surface",
-    x,
-    y,
-    z,
-    showscale: false,
-    hoverinfo: "skip",
-    hovertemplate: "",
-    showlegend: false,
-    opacity: 1.0,
-    surfacecolor: x.map(() => y.map(() => 0)),
-    colorscale: [
-      ["0.0", color],
-      ["1.0", color],
-    ],
-    lighting: {
-      ambient: 0.6,
-      diffuse: 0.8,
-      specular: 0.6,
-      roughness: 0.3,
-      fresnel: 0.2,
-    },
-    contours: { x: { show: false }, y: { show: false }, z: { show: false } },
-  };
+  const geometry = new THREE.SphereGeometry(radius, resolution, resolution);
+  const material = new THREE.MeshStandardMaterial({ color });
+  return new THREE.Mesh(geometry, material);
 }

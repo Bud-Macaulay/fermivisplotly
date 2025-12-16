@@ -1,4 +1,4 @@
-import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiserThree.js";
+import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser";
 
 async function runDemo() {
   const data = await fetch("data.json").then((r) => r.json());

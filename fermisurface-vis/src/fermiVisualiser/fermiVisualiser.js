@@ -1,382 +1,237 @@
-import Plotly from "plotly.js-dist";
-import { getBZTraces, getBZVectorTraces } from "./getBZ.js";
+import * as THREE from "three";
 import { getFermiMesh3d } from "./getFS.js";
+import { getBZEdges, getBZVectors, makeOriginSphere } from "./getBZ.js";
+import { buildFermiGUI } from "./fermiGuiThree.js";
 import { colorPalette } from "../utils.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
+    // options defined here so control is known.
+    this.gpuClipping = options.gpuClipping ?? true;
+    // tri faces to merge (normalised to bounding box for [as %])
+    this.mergeTolerance = options.mergeTolerance ?? 0.1;
+    this.meshOpacity = options.meshOpacity ?? 1.0;
+    this.padding = options.padding ?? 2.5;
+    this.noClip = options.noClip ?? false;
+
+    // optional values to initialise and add to cache.
+    this.precacheValues = options.precacheValues ?? [
+      dataObject.fermiEnergy - 0.05,
+      dataObject.fermiEnergy + 0.05,
+    ];
+    // used to determine how accurate the values when doing cache compares are.
+    this.cachePrecision = options.cachePrecision ?? 3;
+
+    // camera and lighting options
+    this.ambientLightColor = options.ambientLightColor ?? 0xffffff;
+    this.ambientLightValue = options.ambientLightValue ?? 0.6;
+    this.directionalLightColor = options.directionalLightColor ?? 0xffffff;
+    this.directionalLightValue = options.directionalLightValue ?? 0.6;
+    this.directionalLightPosition = options.directionalLightPosition ?? [
+      1, 1, 1,
+    ];
+
+    // optional title for the legend
+    this.legendTitle = options.legendTitle || "";
+
     this.containerDiv = containerDiv;
     this.dataObject = dataObject;
-    this.currentE = options.initialE ?? this.dataObject.fermiEnergy;
 
-    this.bvectors = this.dataObject.brillouinZone.reciprocalVectors;
+    if (this.noClip) {
+      this.BZplanes = [];
+    } else {
+      this.BZplanes = dataObject.brillouinZone.planes;
+    }
 
-    this.meshOpacity = options.meshOpacity ?? 1.0;
+    this.cache = {};
 
-    this.defaultMeshLighting = {
-      ambient: 0.9,
-      diffuse: 0.2,
-      specular: 0.0,
-      roughness: 1.0,
-      fresnel: 0.0,
-    };
-
-    this.meshLighting = options.meshLighting || this.defaultMeshLighting;
-
-    // backend
-    this.worker = new Worker(
-      new URL("./fermiCacheWorker.js", import.meta.url),
-      {
-        type: "module",
-      }
-    );
-
-    this.bzEdgesTrace = null;
-    this.bvectorTraces = null;
-
-    this.scalarFieldTraces = null;
-    this.plotInitialized = false;
-
-    this.planes = dataObject.brillouinZone.planes;
-
-    // TODO: should also preset the camera positon, to be looking down axis.
-    this.defaultLayout = {
-      margin: { t: 20, b: 0, l: 0, r: 0 }, // remove extra spacing
-      title: "Brillouin Zone + Scalar Fields",
-      scene: {
-        xaxis: { visible: false },
-        yaxis: { visible: false },
-        zaxis: { visible: false },
-        camera: {
-          projection: {
-            type: "orthographic", // no depth perseception.
-          },
-        },
-      },
-    };
-
-    this.defaultConfig = {
-      displayModeBar: true,
-      displaylogo: false,
-      modeBarButtonsToRemove: [
-        "zoom3d",
-        "pan3d",
-        "orbitRotation",
-        "tableRotation",
-        "resetCameraLastSave3d",
-        "hoverClosest3d",
-      ],
-      modeBarButtonsToAdd: [
-        {
-          name: "Toggle view type",
-          icon: Plotly.Icons.autoscale,
-          click: function (gd) {
-            const current = gd.layout.scene.camera.projection.type;
-            const next =
-              current === "perspective" ? "orthographic" : "perspective";
-            Plotly.relayout(gd, { "scene.camera.projection.type": next });
-          },
-        },
-      ],
-    };
+    const { vertices, edges } = this.dataObject.brillouinZone;
+    this.currentE = options.initialE ?? dataObject.fermiEnergy;
 
     for (const field of this.dataObject.scalarFields) {
       this._convertNullsToInf(field.scalarFieldInfo);
     }
 
-    // this may be useful to know the max total number of 'grid points'
-    let totalSize = 0;
-    for (const field of this.dataObject.scalarFields) {
-      const [nx, ny, nz] = field.scalarFieldInfo.dimensions;
-      totalSize += nx * ny * nz;
+    // --- THREE SETUP ---
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0xffffff);
+
+    const w = containerDiv.clientWidth;
+    const h = containerDiv.clientHeight;
+    const aspect = w / h;
+
+    this.camera = new THREE.OrthographicCamera(
+      -aspect,
+      aspect,
+      1,
+      -1,
+      0.01,
+      100
+    );
+    this.camera.position.set(2, 2, 2);
+    this.camera.lookAt(0, 0, 0);
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(w, h);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+
+    this.renderer.localClippingEnabled = true;
+
+    containerDiv.appendChild(this.renderer.domElement);
+
+    // Lighting
+    this.scene.add(
+      new THREE.AmbientLight(this.ambientLightColor, this.ambientLightValue)
+    );
+    const dir = new THREE.DirectionalLight(
+      this.directionalLightColor,
+      this.ambientLightValue
+    );
+
+    dir.castShadow = true;
+    dir.position.set(...this.directionalLightPosition);
+    this.scene.add(dir);
+
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enablePan = true;
+    this.controls.enableRotate = true;
+    this.controls.enableZoom = true;
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+    this.controls.addEventListener("change", () =>
+      this.renderer.render(this.scene, this.camera)
+    );
+
+    // --- BUILD BZ ---
+    const bzEdges = getBZEdges(vertices, edges, {});
+    this.scene.add(bzEdges);
+
+    const bvectors = getBZVectors(
+      this.dataObject.brillouinZone.reciprocalVectors
+    );
+    bvectors.forEach((arrow) => this.scene.add(arrow));
+
+    const originSphere = makeOriginSphere();
+    this.scene.add(originSphere);
+
+    // --- BUILD MESHES ---
+    this.meshes = [];
+    this.meshVisibility = [];
+    this.buildMeshes();
+
+    // --- Zoom based on bounding box
+    this._autoZoom(this.padding);
+
+    // --- BUILD GUI ---
+    this._buildGUI();
+
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.sortObjects = true; // helps stop z-fighting
+
+    // --- PRECOMPUTE INIT ARRAY ---
+    if (this.precacheValues && this.precacheValues.length) {
+      for (const E of this.precacheValues) {
+        const roundedE = parseFloat(E.toFixed(this.cachePrecision));
+        if (!this.cache[roundedE]) {
+          const meshes = this.dataObject.scalarFields.map((field, idx) =>
+            getFermiMesh3d({
+              scalarFieldInfo: field.scalarFieldInfo,
+              E: roundedE,
+              slicedPlanes: this.BZplanes,
+              color: colorPalette[idx % colorPalette.length],
+              meshOpacity: this.meshOpacity,
+              name: field.name ?? `Band ${idx + 1}`,
+              gpuClipping: this.gpuClipping,
+              tolerancePercent: this.mergeTolerance,
+            })
+          );
+          this.cache[roundedE] = meshes;
+        }
+      }
     }
-    this.totalDimensionality = totalSize;
-
-    // simple cache via a map
-    this.meshCache = new Map();
-
-    // plot initialisation.
-    this.initializePlot();
   }
 
-  async initializePlot() {
-    const { vertices, edges } = this.dataObject.brillouinZone;
+  buildMeshes(E = this.currentE) {
+    // remove old meshes
+    this.meshes.forEach((mesh) => this.scene.remove(mesh));
 
-    this.bzEdgesTrace = getBZTraces(vertices, edges, {
-      color: "#111",
-      width: 5,
+    const roundedE = parseFloat(E.toFixed(this.cachePrecision));
+    this.currentE = roundedE;
+
+    // get from cache or compute
+    let meshes = this.cache[roundedE];
+    if (!meshes) {
+      meshes = this.dataObject.scalarFields.map((field, idx) =>
+        getFermiMesh3d({
+          scalarFieldInfo: field.scalarFieldInfo,
+          E: roundedE,
+          slicedPlanes: this.BZplanes,
+          color: colorPalette[idx % colorPalette.length],
+          meshOpacity: this.meshOpacity,
+          name: field.name ?? `Band ${idx + 1}`,
+          gpuClipping: this.gpuClipping,
+          tolerancePercent: this.mergeTolerance,
+        })
+      );
+      this.cache[roundedE] = meshes;
+    }
+
+    // apply visibility
+    meshes.forEach((mesh, idx) => {
+      mesh.visible = this.meshVisibility[idx] ?? true;
+      this.scene.add(mesh);
     });
-    this.bzEdgesTrace.showlegend = false;
 
-    this.bvectorTraces = getBZVectorTraces(this.bvectors);
-
-    this.scalarFieldTraces = this.dataObject.scalarFields.map((field, idx) =>
-      getFermiMesh3d({
-        scalarFieldInfo: field.scalarFieldInfo,
-        E: this.currentE,
-        slicedPlanes: this.planes,
-        color: colorPalette[idx % colorPalette.length],
-        meshOpacity: this.meshOpacity,
-        meshLighting: this.meshLighting,
-        name: field.name ?? `Band ${idx + 1}`,
-      })
-    );
-
-    // set in cache
-    this.meshCache.set(this.currentE, this.scalarFieldTraces);
-
-    await Plotly.newPlot(
-      this.containerDiv,
-      [this.bzEdgesTrace, ...this.bvectorTraces, ...this.scalarFieldTraces],
-      this.defaultLayout,
-      this.defaultConfig
-    );
-    this.plotInitialized = true;
-
-    this.containerDiv.on("plotly_legendclick", (eventData) => {
-      const scene = this.containerDiv._fullLayout.scene;
-      if (!scene) return;
-      const currentCamera = { ...scene.camera };
-      setTimeout(() => {
-        // delay the relayout to avoid double firing events.
-        Plotly.relayout(this.containerDiv, { "scene.camera": currentCamera });
-      }, 0);
-    });
+    this.meshes = meshes;
+    this.renderer.render(this.scene, this.camera);
   }
 
   update(E) {
-    if (!this.plotInitialized) {
-      console.warn("Plot not initialized yet.");
-      return;
-    }
-
-    // update current Energy choice
-    this.oldE = this.currentE;
-    this.currentE = E;
-
-    // track visible traces.
-    const oldTraces = this.containerDiv.data;
-    const visibleStates = oldTraces.map((trace) => trace.visible);
-
-    let scalarFieldMesh;
-    const initialTime = performance.now();
-    let timeTaken;
-    // Look in cache
-    if (this.meshCache.has(E)) {
-      console.log("cacheHit");
-      scalarFieldMesh = this.meshCache.get(E);
-      timeTaken = performance.now() - initialTime;
-    } else {
-      // recalculate mesh.
-      scalarFieldMesh = this.dataObject.scalarFields.map((field, idx) =>
-        getFermiMesh3d({
-          scalarFieldInfo: field.scalarFieldInfo,
-          E: E,
-          slicedPlanes: this.planes,
-          color: colorPalette[idx % colorPalette.length],
-          meshOpacity: this.meshOpacity,
-          meshLighting: this.meshLighting,
-          name: field.name ?? `Band ${idx + 1}`,
-        })
-      );
-      timeTaken = performance.now() - initialTime;
-      // add to cache
-      this.meshCache.set(E, scalarFieldMesh);
-
-      // here we do some crazy precaching...
-      // since its kind of insane to run (potentially) so much compute off the main thread
-      // for data that may never be seen i'm keeping this very obviously written badly so
-      //  it will stick out as a sore thumb...
-      // TODO - discuss whether it makes any amount of sense to have something like this...
-      const ranges = [
-        { maxTime: 20, range: 10.0 },
-        { maxTime: 40, range: 5.0 },
-        { maxTime: 50, range: 2.0 }, // additional range if desired
-      ];
-      for (const { maxTime, range } of ranges) {
-        if (timeTaken < maxTime) {
-          console.log(
-            `WEB WORKER IS BUILDING A CACHE BECAUSE LAST CALC TOOK <${maxTime}ms`
-          );
-
-          if (this.currentE < this.oldE) {
-            // stack a large positive cache
-            this.buildCacheByRangeWorker(E, E - range, 0.1);
-            // small negative cache
-            this.buildCacheByRangeWorker(E, E + 0.5 * range, 0.1);
-
-            break; //
-          }
-          if (this.currentE > this.oldE) {
-            // negative cache
-            this.buildCacheByRangeWorker(E, E + range, 0.1);
-            // small positive cache
-            this.buildCacheByRangeWorker(E, E - 0.5 * range, 0.1);
-
-            break;
-          }
-        }
-      }
-    }
-
-    this.scalarFieldMesh = scalarFieldMesh;
-    const newTraces = [
-      this.bzEdgesTrace,
-      ...this.bvectorTraces,
-      ...this.scalarFieldMesh,
-    ];
-
-    // apply visibility state.
-    for (let i = 0; i < newTraces.length; i++) {
-      if (visibleStates[i] !== undefined) {
-        newTraces[i].visible = visibleStates[i];
-      }
-    }
-
-    // apply camera state
-    const scene = this.containerDiv._fullLayout.scene;
-    const camera = scene ? scene.camera : null;
-    const camLayout = { ...this.defaultLayout, ...(camera && { camera }) };
-
-    // finally update plot.
-    Plotly.react(this.containerDiv, newTraces, camLayout);
+    this.buildMeshes(E);
   }
 
-  // Helper functions - currently mostly for testing a high performance cache builder.
-  /**
-   * Add an external mesh to the cache for a given E value.
-   * @param {number} E - Energy value
-   * @param {Array} meshTraces - Array of mesh3d traces corresponding to E
-   */
-  addExtraCache(E, meshTraces) {
-    this.meshCache.set(E, meshTraces);
-    console.log(`Added external mesh to cache for E = ${E}`);
-  }
-
-  getFullCache() {
-    // Shallow copy is fine; the traces themselves can remain references
-    return new Map(this.meshCache);
-  }
-
-  /** Private helper: Currently unused - builds the nested [nx][ny][nz] array */
-  _nestScalarField(scalarFieldInfo) {
-    const { scalarField, dimensions } = scalarFieldInfo;
-    const [nx, ny, nz] = dimensions;
-    const values = new Array(nx);
-    let idx = 0;
-    for (let ix = 0; ix < nx; ix++) {
-      const arrY = new Array(ny);
-      for (let iy = 0; iy < ny; iy++) {
-        const arrZ = new Array(nz);
-        for (let iz = 0; iz < nz; iz++, idx++) {
-          const v = scalarField[idx];
-          arrZ[iz] = v === null ? Infinity : v;
-        }
-        arrY[iy] = arrZ;
-      }
-      values[ix] = arrY;
-    }
-    return values;
-  }
-
-  /** Private preformatter: builds the nested [nx][ny][nz] array */
   _convertNullsToInf(scalarFieldInfo) {
     const { scalarField, dimensions } = scalarFieldInfo;
-    const [nx, ny, nz] = dimensions;
-    const totalSize = nx * ny * nz;
-
-    // Use Float32Array for fast numeric operations
+    const totalSize = dimensions.reduce((a, b) => a * b, 1);
     const formattedScalarField = new Float32Array(totalSize);
-
     for (let i = 0; i < totalSize; i++) {
-      const v = scalarField[i];
-      formattedScalarField[i] = v === null ? Infinity : v;
+      formattedScalarField[i] =
+        scalarField[i] === null ? Infinity : scalarField[i];
     }
-
-    // Save to scalarFieldInfo
     scalarFieldInfo.formattedScalarField = formattedScalarField;
   }
 
-  /**
-   * Builds and caches meshes for a range of energy values.
-   * @param {number} EMIN - Minimum energy
-   * @param {number} EMAX - Maximum energy
-   * @param {number} STEPSIZE - Step size for energies
-   * @returns {Map} meshCache - Map of E -> mesh traces
-   */
-  async buildCacheByRange(EMIN, EMAX, STEPSIZE) {
-    for (let E = EMIN; E <= EMAX + 1e-9; E += STEPSIZE) {
-      const roundedE = parseFloat(E.toFixed(3));
-      if (!this.meshCache.has(roundedE)) {
-        const fields = this.dataObject.scalarFields.map((field, idx) =>
-          getFermiMesh3d({
-            scalarFieldInfo: field.scalarFieldInfo,
-            E: E,
-            slicedPlanes: this.planes,
-            color: colorPalette[idx % colorPalette.length],
-            meshOpacity: 0.95,
-            meshLighting: this.meshLighting,
-            name: field.name ?? `Band ${idx + 1}`,
-          })
-        );
-        this.meshCache.set(roundedE, fields);
-      }
-    }
-
-    return this.meshCache;
+  _buildGUI() {
+    this.guiContainer = buildFermiGUI({
+      containerDiv: this.containerDiv,
+      legendTitle: this.legendTitle,
+      scalarFields: this.dataObject.scalarFields,
+      meshVisibility: this.meshVisibility,
+      getMeshes: () => this.meshes,
+      renderer: this.renderer,
+      scene: this.scene,
+      camera: this.camera,
+    });
   }
 
-  // equivalent to the above method, but crazily runs off the main thread.
-  // In principle this allows building a very deep cache without blocking current DOM rendering.
-  // 1. Initial plot can load
-  // 2. This can be called - and the plot (or other content) isnt locked from updates.
-  async buildCacheByRangeWorker(EMIN, EMAX, STEPSIZE) {
-    if (!this.worker) {
-      this.worker = new Worker(
-        new URL("./fermiCacheWorker.js", import.meta.url)
-      );
-    }
+  _autoZoom(padding = 2.5) {
+    const bbox = new THREE.Box3().setFromObject(this.scene);
+    const size = bbox.getSize(new THREE.Vector3());
+    const center = bbox.getCenter(new THREE.Vector3());
 
-    return new Promise((resolve, reject) => {
-      const energiesProcessed = new Set();
+    const maxDim = Math.max(size.x, size.y, size.z) * 0.5 * this.padding;
 
-      this.worker.onmessage = (event) => {
-        const data = event.data;
+    this.camera.left = -maxDim;
+    this.camera.right = maxDim;
+    this.camera.top = maxDim;
+    this.camera.bottom = -maxDim;
 
-        if (data.done) {
-          resolve(this.meshCache);
-          return;
-        }
-
-        const { E, meshes } = data;
-        const roundedE = parseFloat(E.toFixed(3));
-        this.meshCache.set(roundedE, meshes);
-        energiesProcessed.add(roundedE);
-
-        // Optional: update plot if this is the currently selected E
-        if (Math.abs(this.currentE - roundedE) < 1e-6 && this.plotInitialized) {
-          const newTraces = [
-            this.bzEdgesTrace,
-            ...this.bvectorTraces,
-            ...meshes,
-          ];
-          Plotly.react(this.containerDiv, newTraces, this.defaultLayout);
-        }
-      };
-
-      this.worker.onerror = (err) => {
-        reject(err);
-      };
-
-      // Start worker
-      this.worker.postMessage({
-        scalarFields: this.dataObject.scalarFields,
-        planes: this.planes,
-        EMIN,
-        EMAX,
-        STEPSIZE,
-        cachedEs: Array.from(this.meshCache.keys()),
-      });
-    });
+    const dist = maxDim * 3;
+    this.camera.position.set(center.x + dist, center.y + dist, center.z + dist);
+    this.camera.lookAt(center);
+    this.controls.target.copy(center);
+    this.controls.update();
+    this.camera.updateProjectionMatrix();
   }
 }
