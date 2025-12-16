@@ -8,6 +8,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
     this.gpuClipping = options.gpuClipping ?? true;
+    this.mergeTolerance = options.mergeTolerance ?? 1e-3;
     this.meshOpacity = options.meshOpacity ?? 1.0;
     this.padding = options.padding ?? 2.5;
 
@@ -120,6 +121,7 @@ export class FermiVisualiser {
           meshOpacity: this.meshOpacity,
           name: field.name ?? `Band ${idx + 1}`,
           gpuClipping: this.gpuClipping,
+          tolerancePercent: this.mergeTolerance,
         })
       );
       this.cache[roundedE] = meshes;

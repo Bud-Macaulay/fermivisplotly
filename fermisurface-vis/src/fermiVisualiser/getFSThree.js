@@ -26,9 +26,11 @@ function makeThreeMesh({
   k,
   color,
   opacity,
+  // merge tri normals [0.1 seems like a nice smoothing...]
+  tolerancePercent = 1e-3,
   clippingPlanes = [],
 }) {
-  const geometry = new THREE.BufferGeometry();
+  let geometry = new THREE.BufferGeometry();
 
   // positions
   const positions = new Float32Array(x.length * 3);
@@ -50,7 +52,18 @@ function makeThreeMesh({
 
   // align tri faces, smooth and calculate norms.
   geometry.setIndex(new THREE.BufferAttribute(index, 1));
-  mergeVertices(geometry, 0.01);
+
+  // compute bounding box for relative tolerance
+  const bbox = new THREE.Box3().setFromBufferAttribute(
+    geometry.getAttribute("position")
+  );
+  const size = bbox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+
+  const tolerance = (tolerancePercent / 100) * maxDim;
+
+  const mergedGeometry = mergeVertices(geometry, tolerance);
+  geometry = mergedGeometry;
   geometry.computeVertexNormals();
 
   const material = new THREE.MeshStandardMaterial({
@@ -66,6 +79,8 @@ function makeThreeMesh({
     clipIntersection: false,
   });
 
+  console.log(geometry);
+
   return new THREE.Mesh(geometry, material);
 }
 
@@ -76,6 +91,7 @@ export function getFermiMesh3d({
   color = "#0000ff",
   meshOpacity = 0.95,
   gpuClipping = false,
+  tolerancePercent = 1e-3, // no merge tris
 }) {
   const { dimensions, origin, spacing, minval, maxval, formattedScalarField } =
     scalarFieldInfo;
@@ -189,5 +205,6 @@ export function getFermiMesh3d({
     color,
     opacity: meshOpacity,
     clippingPlanes,
+    tolerancePercent,
   });
 }
