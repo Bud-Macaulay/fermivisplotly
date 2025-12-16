@@ -20,7 +20,7 @@ async function runDemo() {
 
     const sizeBytes = Number(response.headers.get("content-length"));
     const sizeKB = sizeBytes
-      ? (sizeBytes / 1024).toFixed(1) + " KB"
+      ? (sizeBytes / 1024 / 1024).toFixed(1) + " MB"
       : "unknown size";
 
     // wrapper per visualiser
