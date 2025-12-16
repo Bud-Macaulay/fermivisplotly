@@ -23,7 +23,6 @@ class BrillouinZoneData:
         vor = Voronoi(points)
         return vor
 
-
     def get_bz_geometry(self):
         origin_idx = np.argmin(np.linalg.norm(self.bz_voronoi.points, axis=1))
         region_idx = self.bz_voronoi.point_region[origin_idx]
@@ -36,7 +35,7 @@ class BrillouinZoneData:
         hull = ConvexHull(region_vertices)
 
         vertices = np.round(region_vertices, 6).tolist()
-        indices = hull.simplices.tolist() 
+        indices = hull.simplices.tolist()
 
         return vertices, indices
 
@@ -77,7 +76,6 @@ class BrillouinZoneData:
             planes.append({"normal": normal.tolist(), "D": D})
 
         return vertices.tolist(), faces.tolist(), planes
-
 
     def get_bz_outline_edges(self):
         vor = self.bz_voronoi
@@ -122,7 +120,6 @@ class BrillouinZoneData:
 
         return vertices_list, unique_edges_local
 
-
     def get_bz_vertices_and_faces(self):
         origin_idx = np.argmin(np.linalg.norm(self.bz_voronoi.points, axis=1))
         region_idx = self.bz_voronoi.point_region[origin_idx]
@@ -132,13 +129,12 @@ class BrillouinZoneData:
             raise ValueError("Voronoi region is unbounded. Increase lattice range.")
 
         vertices = self.bz_voronoi.vertices[region]
-        
+
         # Compute convex hull to get triangle faces
         hull = ConvexHull(vertices)
         faces = hull.simplices  # shape (n_faces, 3)
-        
-        return vertices, faces
 
+        return vertices, faces
 
     def get_bz_vertices_and_regions(self):
         origin_idx = np.argmin(np.linalg.norm(self.bz_voronoi.points, axis=1))
@@ -160,7 +156,7 @@ class BrillouinZoneData:
             np.linspace(min_corner[0], max_corner[0], resolution),
             np.linspace(min_corner[1], max_corner[1], resolution),
             np.linspace(min_corner[2], max_corner[2], resolution),
-            indexing='ij'
+            indexing="ij",
         )
 
         grid_points = np.stack([grid_x, grid_y, grid_z], axis=-1).reshape(-1, 3)
@@ -191,8 +187,8 @@ class BrillouinZoneData:
         coords = coords.T
 
         # Interpolate with periodic boundary conditions (mode='wrap') mirror might be better?
-        # TODO read this: "https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html"        
-        values = map_coordinates(field, coords, order=1, mode='nearest')
+        # TODO read this: "https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html"
+        values = map_coordinates(field, coords, order=1, mode="nearest")
         return values
 
     def sample_scalar_field_in_bz(self, resolution=50, band_index=0):

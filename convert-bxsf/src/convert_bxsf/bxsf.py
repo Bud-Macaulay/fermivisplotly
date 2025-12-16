@@ -8,16 +8,16 @@ import numpy as np
 class BxsfData:
     num_bands: int
     grid_shape: tuple
-    origin: np.ndarray             # shape (3,)
+    origin: np.ndarray  # shape (3,)
     reciprocal_vectors: np.ndarray  # shape (3, 3)
     fermi_energy: float = None
     comment: str = ""
     scalar_field: np.ndarray = None  # shape: (num_bands, nx, ny, nz)
-    band_ranges: np.ndarray = None # [band_index] = (min, max)
+    band_ranges: np.ndarray = None  # [band_index] = (min, max)
 
 
 def parse_bxsf_header(file_path):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         lines = [line.strip() for line in f]
 
     comment = ""
@@ -38,22 +38,23 @@ def parse_bxsf_header(file_path):
                 pass
 
         # look for bandgrid start... - this is not consistant?
-        if "BANDGRID_3D_BANDS" in line or"BEGIN_BANDGRID_3D_fermi" in line:
+        if "BANDGRID_3D_BANDS" in line or "BEGIN_BANDGRID_3D_fermi" in line:
             try:
-                num_bands = int(lines[i+1])
-                grid_shape = tuple(map(int, lines[i+2].split()))
-                origin = np.array(list(map(float, lines[i+3].split())))
-                reciprocal_vectors = np.array([
-                    list(map(float, lines[i+4].split())),
-                    list(map(float, lines[i+5].split())),
-                    list(map(float, lines[i+6].split()))
-                ])
+                num_bands = int(lines[i + 1])
+                grid_shape = tuple(map(int, lines[i + 2].split()))
+                origin = np.array(list(map(float, lines[i + 3].split())))
+                reciprocal_vectors = np.array(
+                    [
+                        list(map(float, lines[i + 4].split())),
+                        list(map(float, lines[i + 5].split())),
+                        list(map(float, lines[i + 6].split())),
+                    ]
+                )
             except Exception as e:
                 raise ValueError(f"Failed to parse BANDGRID block: {e}")
             break
 
     return num_bands, grid_shape, origin, reciprocal_vectors, fermi_energy, comment
-
 
 
 def parse_bxsf(file_path):
@@ -66,7 +67,7 @@ def parse_bxsf(file_path):
         comment,
     ) = parse_bxsf_header(file_path)
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         lines = [line.strip() for line in f]
 
     nx, ny, nz = grid_shape
@@ -89,7 +90,9 @@ def parse_bxsf(file_path):
 
         if line.startswith("END_BANDGRID_3D"):
             if reading_band:
-                raise ValueError("Unexpected END_BANDGRID_3D before finishing band data")
+                raise ValueError(
+                    "Unexpected END_BANDGRID_3D before finishing band data"
+                )
             break
 
         if reading_band:
@@ -100,7 +103,9 @@ def parse_bxsf(file_path):
 
             if len(current_band_data) >= total_points:
                 if len(current_band_data) != total_points:
-                    raise ValueError(f"Band {band_count} has incorrect number of values")
+                    raise ValueError(
+                        f"Band {band_count} has incorrect number of values"
+                    )
                 band_array = np.array(current_band_data).reshape(grid_shape)
                 scalar_field.append(band_array)
                 band_ranges.append((np.min(band_array), np.max(band_array)))
@@ -109,7 +114,7 @@ def parse_bxsf(file_path):
 
     if band_count != num_bands:
         raise ValueError(f"Expected {num_bands} bands, but parsed {band_count}")
-        
+
     return BxsfData(
         num_bands=num_bands,
         grid_shape=grid_shape,
