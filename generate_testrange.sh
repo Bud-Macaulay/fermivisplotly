@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+### Usage: ./generate_testrange.sh <input.bxsf> <output_dir> ###
+### ./generate_testrange.sh -h (shows this message) ###
+
 # -------- defaults --------
 PRECISIONS=(1 2 3 4 5)
 RESOLUTIONS=(24 36 48 96 128)

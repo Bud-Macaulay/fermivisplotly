@@ -15,13 +15,45 @@ async function runDemo() {
   }
 
   for (const file of files) {
-    const response = await fetch(file);
-    const data = await response.json();
+    let data;
+    let sizeKB = "unknown size";
 
-    const sizeBytes = Number(response.headers.get("content-length"));
-    const sizeKB = sizeBytes
-      ? (sizeBytes / 1024 / 1024).toFixed(1) + " MB"
-      : "unknown size";
+    try {
+      const response = await fetch(file);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      data = await response.json();
+
+      const sizeBytes = Number(response.headers.get("content-length"));
+      sizeKB = sizeBytes
+        ? (sizeBytes / 1024 / 1024).toFixed(1) + " MB"
+        : "unknown size";
+    } catch (err) {
+      console.error(
+        `Files could not be found: ${file}. Did you run the generate_testrange.sh script?`
+      );
+      console.error(err);
+
+      // create error message in DOM
+      const errorDiv = document.createElement("div");
+      errorDiv.style.width = "450px";
+      errorDiv.style.height = "60px";
+      errorDiv.style.border = "2px solid red";
+      errorDiv.style.display = "flex";
+      errorDiv.style.alignItems = "center";
+      errorDiv.style.justifyContent = "center";
+      errorDiv.style.marginBottom = "8px";
+      errorDiv.style.fontFamily = "sans-serif";
+      errorDiv.style.fontSize = "14px";
+      errorDiv.style.color = "red";
+      errorDiv.textContent = `Error: File "${file}" not found. Did you run generate_testrange.sh?`;
+
+      plotsDiv.appendChild(errorDiv);
+      continue; // skip to next file
+    }
 
     // wrapper per visualiser
     const wrapper = document.createElement("div");
