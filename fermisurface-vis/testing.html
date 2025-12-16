@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Plot Demo</title>
+  </head>
+  <body>
+    <div id="controls">
+      <label>
+        E (isosurface choice):
+        <input type="range" id="Eslider" min="0" max="2" step="1" />
+        <span id="Elabel"></span>
+      </label>
+    </div>
+
+    <div
+      id="plots"
+      style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px"
+    ></div>
+
+    <script type="module" src="./src/testing.js"></script>
+  </body>
+</html>
