@@ -15,6 +15,11 @@ export class FermiVisualiser {
     this.padding = options.padding ?? 2.5;
     this.noClip = options.noClip ?? false;
 
+    this.wireframe = options.wireframe ?? false;
+
+    console.log(options.wireframe);
+    console.log(this.wireframe);
+
     // optional values to initialise and add to cache.
     this.precacheValues = options.precacheValues ?? [
       dataObject.fermiEnergy - 0.05,
@@ -144,6 +149,7 @@ export class FermiVisualiser {
               name: field.name ?? `Band ${idx + 1}`,
               gpuClipping: this.gpuClipping,
               tolerancePercent: this.mergeTolerance,
+              wireframe: this.wireframe,
             })
           );
           this.cache[roundedE] = meshes;
@@ -172,6 +178,7 @@ export class FermiVisualiser {
           name: field.name ?? `Band ${idx + 1}`,
           gpuClipping: this.gpuClipping,
           tolerancePercent: this.mergeTolerance,
+          wireframe: this.wireframe,
         })
       );
       this.cache[roundedE] = meshes;

@@ -31,6 +31,7 @@ function makeThreeMesh({
   // merge tri normals [0.1 seems like a nice smoothing...]
   tolerancePercent = 0.1,
   clippingPlanes = [],
+  wireframe = false,
 }) {
   let geometry = new THREE.BufferGeometry();
 
@@ -72,7 +73,7 @@ function makeThreeMesh({
     color,
     transparent: opacity < 1,
     opacity,
-    // wireframe: true,
+    wireframe: wireframe,
     side: THREE.DoubleSide,
     flatShading: false,
     depthWrite: true,
@@ -92,6 +93,7 @@ export function getFermiMesh3d({
   meshOpacity = 1.0,
   gpuClipping = false,
   tolerancePercent = 0.1, // no merge tris
+  wireframe = false,
 }) {
   const { dimensions, origin, spacing, minval, maxval, formattedScalarField } =
     scalarFieldInfo;
@@ -202,5 +204,6 @@ export function getFermiMesh3d({
     opacity: meshOpacity,
     clippingPlanes,
     tolerancePercent,
+    wireframe,
   });
 }

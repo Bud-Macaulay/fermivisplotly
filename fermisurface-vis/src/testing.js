@@ -1,3 +1,4 @@
+import { Wireframe } from "three/examples/jsm/Addons.js";
 import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser";
 
 async function runDemo() {
@@ -10,7 +11,7 @@ async function runDemo() {
 
   for (const p of precision) {
     for (const r of res) {
-      files.push(`/testdata/testfile_${p}_${r}.json`);
+      files.push(`/testdata/file1_p${p}_r${r}.json`);
     }
   }
 
@@ -80,8 +81,7 @@ async function runDemo() {
     plotsDiv.appendChild(wrapper);
 
     new FermiVisualiser(plotDiv, data, {
-      gpuClipping: true,
-      meshOpacity: 1.0,
+      precacheValues: [], // dont calculate the range.
     });
   }
 }
