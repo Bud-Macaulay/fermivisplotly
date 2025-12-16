@@ -130,7 +130,13 @@ def get_band_indices_from_energy_window(band_ranges, energy_window, ref_energy=0
 
 # --- Main export function --- #
 def export_multiple_scalar_fields_with_edges_to_json(
-    scalar_fields_bz, band_names, bz: BrillouinZoneData, min_corner, max_corner, path
+    scalar_fields_bz,
+    band_names,
+    bz: BrillouinZoneData,
+    min_corner,
+    max_corner,
+    path,
+    precision,
 ):
     print("\n=== Exporting multiple scalar fields and BZ outline edges to JSON ===")
 
@@ -143,7 +149,7 @@ def export_multiple_scalar_fields_with_edges_to_json(
     scalar_fields_json = []
     for scalar_field_bz, band_name in zip(scalar_fields_bz, band_names):
         # Round to 2 decimals
-        rounded_array = np.round(scalar_field_bz, 2).flatten(order="C")
+        rounded_array = np.round(scalar_field_bz, precision).flatten(order="C")
 
         # Further compress: convert e.g. 1.0 -> 1
         rounded_array = [
@@ -207,6 +213,7 @@ def prepare_json(
     energy_window=None,
     bands=None,
     resolution=20,
+    precision=4,
     output_fname="fermidata.json",
     mask_outside_bz=False,
 ):
@@ -277,7 +284,13 @@ def prepare_json(
         band_names.append(f"Band {band_idx + 1}")
 
     export_multiple_scalar_fields_with_edges_to_json(
-        scalar_fields_bz, band_names, bz, min_corner, max_corner, output_fname
+        scalar_fields_bz,
+        band_names,
+        bz,
+        min_corner,
+        max_corner,
+        output_fname,
+        precision,
     )
 
 
@@ -324,6 +337,14 @@ def main():
         help="Mask values outside of the brillioun Zone",
     )
 
+    parser.add_argument(
+        "-p",
+        "--precision",
+        type=int,
+        default=4,
+        help="precision to round scalar field values to (default: 4)",
+    )
+
     args = parser.parse_args()
 
     if args.bands and args.energy_window:
@@ -335,6 +356,7 @@ def main():
         args.energy_window,
         args.bands,
         args.resolution,
+        args.precision,
         args.output_fname,
         args.mask_outside_bz,
     )
