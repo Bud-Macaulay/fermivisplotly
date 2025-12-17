@@ -1,18 +1,30 @@
 {
   "name": "fermivisplotly",
-  "version": "0.2.6",
-  "main": "index.js",
-  "module": "index.js",
+  "version": "0.2.7",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/main.js",
+  "module": "dist/main.js",
+  "exports": {
+    ".": {
+      "import": "./dist/main.js"
+    }
+  },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "vite build"
   },
   "dependencies": {
+    "three": "^0.150.0",
     "isosurface": "^1.0.0",
     "plotly.js-dist": "^3.0.1",
-    "three": "^0.182.0",
-    "three-stdlib": "^2.36.1",
-    "vite": "^7.0.3"
+    "three-stdlib": "^2.36.1"
+  },
+  "devDependencies": {
+    "vite": "^7.0.3",
+    "@vitejs/plugin-react": "^4.2.0",
+    "vite-plugin-lib-inject-css": "^2.1.0"
   }
 }

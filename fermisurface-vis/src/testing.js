@@ -1,4 +1,4 @@
-import { Wireframe } from "three/examples/jsm/Addons.js";
+import { Wireframe } from "three-stdlib";
 import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser";
 
 async function runDemo() {
@@ -11,7 +11,7 @@ async function runDemo() {
 
   for (const p of precision) {
     for (const r of res) {
-      files.push(`/testdata/file1_p${p}_r${r}.json`);
+      files.push(`public/testdata/file1_p${p}_r${r}.json`);
     }
   }
 
