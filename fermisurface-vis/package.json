@@ -1,6 +1,6 @@
 {
   "name": "fermivisplotly",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "main": "index.js",
   "module": "index.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "isosurface": "^1.0.0",
     "plotly.js-dist": "^3.0.1",
     "three": "^0.182.0",
+    "three-stdlib": "^2.36.1",
     "vite": "^7.0.3"
   }
 }
