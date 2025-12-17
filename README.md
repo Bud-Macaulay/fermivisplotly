@@ -10,7 +10,7 @@ This repository contains
 ### Usage (Vanilla JS)
 
 ```js
-import { FermiVisualiser } from "fermi-vis-plotly";
+import { FermiVisualiser } from "fermisurface-visualiser";
 
 const data = await fetch("./path/to/your/data.json").then((r) => r.json());
 
