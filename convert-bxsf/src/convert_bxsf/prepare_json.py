@@ -225,13 +225,9 @@ def prepare_json(
     bz = BrillouinZoneData(data)
 
     logger.info(f"=== Generating grid with resolution={resolution} ===")
-    grid_points, shape = bz.generate_cartesian_grid(resolution=resolution)
-    margin = 0.05  # pad the grid box a little.
-    min_corner = grid_points.min(axis=0)
-    max_corner = grid_points.max(axis=0)
-    extent = max_corner - min_corner
-    min_corner = min_corner - margin * extent
-    max_corner = max_corner + margin * extent
+    grid_points, shape, min_corner, max_corner = bz.generate_cartesian_grid(
+        resolution=resolution, padding_points=2
+    )
 
     if not mask_outside_bz:
         logger.info("=== Using full grid, no masking ===")

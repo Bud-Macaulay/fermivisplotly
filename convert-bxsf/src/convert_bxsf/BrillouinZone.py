@@ -147,20 +147,29 @@ class BrillouinZoneData:
         vertices = self.bz_voronoi.vertices[region]
         return vertices, region
 
-    def generate_cartesian_grid(self, resolution=50):
+    def generate_cartesian_grid(self, resolution=50, padding_points=2):
         vertices, _ = self.get_bz_vertices_and_regions()
         min_corner = vertices.min(axis=0)
         max_corner = vertices.max(axis=0)
 
-        grid_x, grid_y, grid_z = np.meshgrid(
-            np.linspace(min_corner[0], max_corner[0], resolution),
-            np.linspace(min_corner[1], max_corner[1], resolution),
-            np.linspace(min_corner[2], max_corner[2], resolution),
-            indexing="ij",
-        )
+        # Include padding in number of points
+        total_points = resolution + 2 * padding_points
+
+        # Compute spacing based on the original box
+        spacing = (max_corner - min_corner) / (resolution - 1)
+
+        # Extend the corners by the correct amount
+        min_corner -= padding_points * spacing
+        max_corner += padding_points * spacing
+
+        # Generate grid
+        grid_axes = [
+            np.linspace(min_corner[i], max_corner[i], total_points) for i in range(3)
+        ]
+        grid_x, grid_y, grid_z = np.meshgrid(*grid_axes, indexing="ij")
 
         grid_points = np.stack([grid_x, grid_y, grid_z], axis=-1).reshape(-1, 3)
-        return grid_points, grid_x.shape
+        return grid_points, grid_x.shape, min_corner, max_corner
 
     def filter_points_in_bz(self, grid_points):
         vertices, _ = self.get_bz_vertices_and_regions()
