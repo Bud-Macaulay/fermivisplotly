@@ -1,10 +1,10 @@
 // buildFermiGUI.js
-import { colorPalette } from "../utils.js";
 
 export function buildFermiGUI({
   containerDiv,
   legendTitle,
   scalarFields,
+  colorPalette,
   meshVisibility,
   getMeshes, // <-- function to get current meshes
   renderer,

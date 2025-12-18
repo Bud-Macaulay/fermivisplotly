@@ -2,11 +2,26 @@ import * as THREE from "three";
 import { getFermiMesh3d } from "./getFS.js";
 import { getBZEdges, getBZVectors, makeOriginSphere } from "./getBZ.js";
 import { buildFermiGUI } from "./fermiGuiThree.js";
-import { colorPalette } from "../utils.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+// plotly default colorpallete.
+const colorPalette = [
+  "#1f77b4",
+  "#ff7f0e",
+  "#2ca02c",
+  "#d62728",
+  "#9467bd",
+  "#8c564b",
+  "#e377c2",
+  "#7f7f7f",
+  "#bcbd22",
+  "#17becf",
+];
 
 export class FermiVisualiser {
   constructor(containerDiv, dataObject, options = {}) {
+    this.colorPallete = options.colorPalette || colorPalette;
+
     // options defined here so control is known.
     this.gpuClipping = options.gpuClipping ?? true;
     // tri faces to merge (normalised to bounding box for [as %])
@@ -141,7 +156,7 @@ export class FermiVisualiser {
               scalarFieldInfo: field.scalarFieldInfo,
               E: roundedE,
               slicedPlanes: this.BZplanes,
-              color: colorPalette[idx % colorPalette.length],
+              color: this.colorPallete[idx % this.colorPallete.length],
               meshOpacity: this.meshOpacity,
               name: field.name ?? `Band ${idx + 1}`,
               gpuClipping: this.gpuClipping,
@@ -170,7 +185,7 @@ export class FermiVisualiser {
           scalarFieldInfo: field.scalarFieldInfo,
           E: roundedE,
           slicedPlanes: this.BZplanes,
-          color: colorPalette[idx % colorPalette.length],
+          color: this.colorPallete[idx % this.colorPallete.length],
           meshOpacity: this.meshOpacity,
           name: field.name ?? `Band ${idx + 1}`,
           gpuClipping: this.gpuClipping,
@@ -212,6 +227,7 @@ export class FermiVisualiser {
       legendTitle: this.legendTitle,
       scalarFields: this.dataObject.scalarFields,
       meshVisibility: this.meshVisibility,
+      colorPalette: this.colorPallete,
       getMeshes: () => this.meshes,
       renderer: this.renderer,
       scene: this.scene,
