@@ -129,8 +129,6 @@ export function getFermiMesh3d({
   const invSpacingZ = 1 / spacing[2];
   const nyz = ny * nz;
 
-  const t2 = performance.now();
-
   // Get mesh geometry - (uses some array tricks for faster indexing.
   const mesh = marchingCubes(
     [nx, ny, nz],
@@ -143,9 +141,6 @@ export function getFermiMesh3d({
     },
     bounds
   );
-
-  const t3 = performance.now();
-  console.log(`mC run took: ${t3 - t2} ms`);
 
   let positions,
     cells,

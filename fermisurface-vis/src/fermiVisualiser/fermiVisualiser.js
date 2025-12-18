@@ -17,9 +17,6 @@ export class FermiVisualiser {
 
     this.wireframe = options.wireframe ?? false;
 
-    console.log(options.wireframe);
-    console.log(this.wireframe);
-
     // optional values to initialise and add to cache.
     this.precacheValues = options.precacheValues ?? [
       dataObject.fermiEnergy - 0.05,
