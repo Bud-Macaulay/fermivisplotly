@@ -26,6 +26,19 @@ async function runDemo() {
     Elabel.textContent = E.toFixed(5);
     vis.update(E);
   });
+
+  const sizeSlider = document.getElementById("sizeSlider");
+  const sizeLabel = document.getElementById("sizeLabel");
+  const wrapper = document.getElementById("wrapperdiv");
+
+  sizeLabel.textContent = sizeSlider.value;
+
+  sizeSlider.addEventListener("input", () => {
+    const v = sizeSlider.value;
+    sizeLabel.textContent = v;
+    wrapper.style.width = `${v}vh`;
+    wrapper.style.height = `${v}vh`;
+  });
 }
 
 runDemo();

@@ -168,6 +168,9 @@ export class FermiVisualiser {
         }
       }
     }
+
+    // watch for resizes.
+    this._initResizeObserver();
   }
 
   buildMeshes(E = this.currentE) {
@@ -253,5 +256,37 @@ export class FermiVisualiser {
     this.controls.target.copy(center);
     this.controls.update();
     this.camera.updateProjectionMatrix();
+  }
+
+  _initResizeObserver() {
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+
+      const { width, height } = entry.contentRect;
+      this._resize(width, height);
+    });
+
+    this._resizeObserver.observe(this.containerDiv);
+  }
+
+  _resize(width, height) {
+    if (width === 0 || height === 0) return;
+
+    const aspect = width / height;
+
+    this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+
+    const frustumHeight = this.camera.top - this.camera.bottom;
+    const frustumWidth = frustumHeight * aspect;
+
+    const cx = (this.camera.left + this.camera.right) * 0.5;
+
+    this.camera.left = cx - frustumWidth / 2;
+    this.camera.right = cx + frustumWidth / 2;
+
+    this.camera.updateProjectionMatrix();
+    this.renderer.render(this.scene, this.camera);
   }
 }
