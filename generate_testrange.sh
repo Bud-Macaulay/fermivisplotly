@@ -5,8 +5,8 @@ set -euo pipefail
 ### ./generate_testrange.sh -h (shows this message) ###
 
 # -------- defaults --------
-PRECISIONS=(1 2 3 4 5)
-RESOLUTIONS=(24 36 48 96 128)
+PRECISIONS=(1 2 3 4)
+RESOLUTIONS=(8 16 24 32 48 64 128)
 ENERGY_MIN=-0.05
 ENERGY_MAX=0.05
 
@@ -39,7 +39,38 @@ for p in "${PRECISIONS[@]}"; do
       -r "$r" \
       -p "$p" \
       -o "$OUTFILE"
+
+    # -------- compress --------
+    gzip -kf "$OUTFILE"          # creates OUTFILE.json.gz
+    brotli -kf "$OUTFILE"        # creates OUTFILE.json.br
   done
 done
+
+# -------- generate index.json --------
+INDEX_FILE="${OUTDIR}/testinfo.json"
+
+echo "Generating testinfo.json"
+
+{
+  echo "["
+  first=true
+  for f in "$OUTDIR"/*.json; do
+    [ "$(basename "$f")" = "testinfo.json" ] && continue
+    if [ "$first" = true ]; then
+      first=false
+    else
+      echo ","
+    fi
+    # capture file sizes
+    size=$(stat -c%s "$f") # bytes
+    gzip_size=$(stat -c%s "$f.gz" || echo 0)
+    br_size=$(stat -c%s "$f.br" || echo 0)
+
+    printf '  {"file":"%s","size":%s,"gzip":%s,"brotli":%s}' \
+      "$(basename "$f")" "$size" "$gzip_size" "$br_size"
+  done
+  echo
+  echo "]"
+} > "$INDEX_FILE"
 
 echo "✓ Done"

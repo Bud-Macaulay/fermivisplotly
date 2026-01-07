@@ -1,87 +1,143 @@
-import { Wireframe } from "three-stdlib";
 import { FermiVisualiser } from "./fermiVisualiser/fermiVisualiser";
+
+function parseFilename(name) {
+  const m = name.match(/^(.*)_p(\d+)_r(\d+)\.json$/);
+  if (!m) return null;
+
+  return {
+    dataset: m[1],
+    precision: Number(m[2]),
+    resolution: Number(m[3]),
+    filename: name,
+  };
+}
+
+function formatBytes(bytes) {
+  if (bytes == null) return "unknown";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatReduction(original, compressed) {
+  if (!original || !compressed) return "—";
+  return `${(((original - compressed) / original) * 100).toFixed(1)}%`;
+}
 
 async function runDemo() {
   const plotsDiv = document.getElementById("plots");
 
-  const precision = [1, 2, 3, 4, 5];
-  const res = [24, 36, 48, 96];
-
-  const files = [];
-
-  for (const p of precision) {
-    for (const r of res) {
-      files.push(`public/testdata/file1_p${p}_r${r}.json`);
-    }
+  let files;
+  try {
+    const indexResponse = await fetch("public/testdata/testinfo.json");
+    files = await indexResponse.json();
+  } catch (err) {
+    console.error("Failed to load testdata testinfo.json", err);
+    return;
   }
 
-  for (const file of files) {
+  // --- render table at the top ---
+  const table = document.createElement("table");
+  table.style.borderCollapse = "collapse";
+  table.style.marginBottom = "16px";
+  table.style.fontFamily = "sans-serif";
+
+  const headerRow = document.createElement("tr");
+  [
+    "Filename",
+    "Raw Size",
+    "Gzip Size",
+    "Gzip %",
+    "Brotli Size",
+    "Brotli %",
+  ].forEach((h) => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    th.style.border = "1px solid #ccc";
+    th.style.padding = "4px 8px";
+    th.style.background = "#eee";
+    th.style.fontSize = "12px";
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  // populate rows
+  files.forEach((f) => {
+    const tr = document.createElement("tr");
+
+    const cells = [
+      f.file,
+      formatBytes(f.size),
+      formatBytes(f.gzip),
+      formatReduction(f.size, f.gzip),
+      formatBytes(f.brotli),
+      formatReduction(f.size, f.brotli),
+    ];
+
+    cells.forEach((text) => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      td.style.border = "1px solid #ccc";
+      td.style.padding = "2px 6px";
+      td.style.fontSize = "11px";
+      tr.appendChild(td);
+    });
+
+    table.appendChild(tr);
+  });
+
+  // --- sort and render plots as before ---
+  const parsed = files
+    .map((f) => parseFilename(f.file))
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.dataset !== b.dataset) return a.dataset.localeCompare(b.dataset);
+      if (a.resolution !== b.resolution) return a.resolution - b.resolution;
+      return a.precision - b.precision;
+    })
+    .map((f) => f.filename);
+
+  for (const filename of parsed) {
+    const file = `public/testdata/${filename}`;
     let data;
-    let sizeKB = "unknown size";
 
     try {
       const response = await fetch(file);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       data = await response.json();
-
-      const sizeBytes = Number(response.headers.get("content-length"));
-      sizeKB = sizeBytes
-        ? (sizeBytes / 1024 / 1024).toFixed(1) + " MB"
-        : "unknown size";
     } catch (err) {
-      console.error(
-        `Files could not be found: ${file}. Did you run the generate_testrange.sh script?`
-      );
-      console.error(err);
-
-      // create error message in DOM
-      const errorDiv = document.createElement("div");
-      errorDiv.style.width = "450px";
-      errorDiv.style.height = "60px";
-      errorDiv.style.border = "2px solid red";
-      errorDiv.style.display = "flex";
-      errorDiv.style.alignItems = "center";
-      errorDiv.style.justifyContent = "center";
-      errorDiv.style.marginBottom = "8px";
-      errorDiv.style.fontFamily = "sans-serif";
-      errorDiv.style.fontSize = "14px";
-      errorDiv.style.color = "red";
-      errorDiv.textContent = `Error: File "${file}" not found. Did you run generate_testrange.sh?`;
-
-      plotsDiv.appendChild(errorDiv);
-      continue; // skip to next file
+      console.error(`Failed to load ${file}`, err);
+      continue;
     }
 
-    // wrapper per visualiser
     const wrapper = document.createElement("div");
     wrapper.style.width = "450px";
     wrapper.style.height = "450px";
     wrapper.style.border = "2px solid #ccc";
     wrapper.style.position = "relative";
 
-    // title
     const title = document.createElement("div");
-    title.textContent = `${file} (${sizeKB})`;
+    const info = files.find((f) => f.file === filename);
+    const sizeText = info ? formatBytes(info.size) : "unknown size";
+    title.textContent = `${filename} (${sizeText})`;
     title.style.textAlign = "center";
     title.style.fontFamily = "sans-serif";
     title.style.fontSize = "12px";
-    title.style.marginBottom = "4px";
+    title.style.paddingBottom = "4px";
 
-    // plot container
     const plotDiv = document.createElement("div");
-    plotDiv.style.width = "100%";
+    plotDiv.style.width = "97%";
     plotDiv.style.aspectRatio = "1 / 1";
 
-    wrapper.appendChild(title);
+    const tableContainer = document.getElementById("table-container");
+    tableContainer.appendChild(table);
+
     wrapper.appendChild(plotDiv);
+    wrapper.appendChild(title);
     plotsDiv.appendChild(wrapper);
 
     new FermiVisualiser(plotDiv, data, {
-      precacheValues: [], // dont calculate the range.
+      precacheValues: [],
     });
   }
 }

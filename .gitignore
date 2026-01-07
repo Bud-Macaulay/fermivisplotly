@@ -2,4 +2,7 @@ node_modules
 dist/
 __pycache__/
 fermidata.json
-file1_*.json
+file*.json
+testinfo.json
+*.json.br
+*.json.gz
