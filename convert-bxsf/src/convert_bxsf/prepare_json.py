@@ -75,9 +75,8 @@ def export_multiple_scalar_fields_with_edges_to_json(
     precision,
 ):
     logger.info("=== Exporting multiple scalar fields and BZ outline edges to JSON ===")
-
     Nz, Ny, Nx = scalar_fields_bz[0].shape
-    spacing = (max_corner - min_corner) / np.array([Nx - 1, Ny - 1, Nz - 1])
+    spacing = (max_corner - min_corner) / np.array([Nx, Ny, Nz])
     origin = min_corner
 
     fermi_energy = bz.bxsf.fermi_energy
