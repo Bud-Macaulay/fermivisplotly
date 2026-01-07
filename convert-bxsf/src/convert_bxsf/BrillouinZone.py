@@ -23,22 +23,6 @@ class BrillouinZoneData:
         vor = Voronoi(points)
         return vor
 
-    def get_bz_geometry(self):
-        origin_idx = np.argmin(np.linalg.norm(self.bz_voronoi.points, axis=1))
-        region_idx = self.bz_voronoi.point_region[origin_idx]
-        region = self.bz_voronoi.regions[region_idx]
-
-        if -1 in region:
-            raise ValueError("Voronoi region is unbounded. Increase lattice range.")
-
-        region_vertices = self.bz_voronoi.vertices[region]
-        hull = ConvexHull(region_vertices)
-
-        vertices = np.round(region_vertices, 6).tolist()
-        indices = hull.simplices.tolist()
-
-        return vertices, indices
-
     def get_bz_faces_with_planes(self):
         """
         Returns:
@@ -199,16 +183,3 @@ class BrillouinZoneData:
         # TODO read this: "https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.map_coordinates.html"
         values = map_coordinates(field, coords, order=1, mode="nearest")
         return values
-
-    def sample_scalar_field_in_bz(self, resolution=50, band_index=0):
-        grid_points, shape = self.generate_cartesian_grid(resolution)
-        points_in_bz, mask = self.filter_points_in_bz(grid_points)
-
-        frac_coords = self.cartesian_to_fractional(points_in_bz)
-        interpolated_values = self.interpolate_scalar_field(frac_coords, band_index)
-
-        scalar_field_bz = np.full((np.prod(shape),), np.nan)
-        scalar_field_bz[mask] = interpolated_values
-        scalar_field_bz = scalar_field_bz.reshape(shape)
-
-        return scalar_field_bz
