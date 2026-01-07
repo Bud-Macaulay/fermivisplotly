@@ -2,17 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="stylesheet" href="index.css" />
+
     <title>Plot Demo</title>
   </head>
   <body>
-    <!-- container for the table -->
-    <div id="table-container" style="margin-bottom: 32px"></div>
+    <!-- Header -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/materialscloud-org/mc-header@main/header.js"
+      defer
+    ></script>
+    <script>
+      var breadcrumbsPath = [
+        { name: "Work", link: "https://www.materialscloud.org/work/menu" },
+        {
+          name: "Tools",
+          link: "https://www.materialscloud.org/work/tools/options",
+        },
+        {
+          name: "Fermi surface visualiser test results",
+          link: null,
+        },
+      ];
+    </script>
 
-    <!-- container for plots -->
-    <div
-      id="plots"
-      style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px"
-    ></div>
+    <div class="container">
+      <p>
+        Original file information, file1: 31.7MB,file2: 13.4MB, both 46x46x46
+        grids in kspace, both 9 characters precision.
+      </p>
+
+      <p>
+        If the test results havent loaded you need to generate them with
+        ./generate_testrange.sh
+      </p>
+      <!-- container for the table -->
+      <div id="table-container" style="margin-bottom: 32px"></div>
+
+      <!-- container for plots -->
+      <div
+        id="plots"
+        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px"
+      ></div>
+    </div>
 
     <script type="module" src="./src/testing.js"></script>
   </body>

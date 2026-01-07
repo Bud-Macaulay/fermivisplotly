@@ -29,7 +29,7 @@ async function runDemo() {
 
   const sizeSlider = document.getElementById("sizeSlider");
   const sizeLabel = document.getElementById("sizeLabel");
-  const wrapper = document.getElementById("wrapperdiv");
+  const wrapper = document.getElementById("plotwrapper");
 
   sizeLabel.textContent = sizeSlider.value;
 

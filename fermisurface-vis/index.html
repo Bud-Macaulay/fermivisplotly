@@ -1,32 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <link rel="stylesheet" href="index.css" />
     <meta charset="UTF-8" />
-    <title>Plot Demo</title>
+    <title>Fermi surface visualiser demo</title>
   </head>
   <body>
-    <div id="controls">
-      <label>
-        E (isosurface choice):
-        <input type="range" id="Eslider" min="0" max="2" step="1" />
-        <span id="Elabel"></span>
-      </label>
+    <!-- Header -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/materialscloud-org/mc-header@main/header.js"
+      defer
+    ></script>
+    <script>
+      var breadcrumbsPath = [
+        { name: "Work", link: "https://www.materialscloud.org/work/menu" },
+        {
+          name: "Tools",
+          link: "https://www.materialscloud.org/work/tools/options",
+        },
+        {
+          name: "Fermi surface visualiser DEMO",
+          link: null,
+        },
+      ];
+    </script>
 
-      <br /><br />
+    <div class="container">
+      <h1>Fermi surface visualiser demo</h1>
+      <div id="controls">
+        <label>
+          E (isosurface choice):
+          <input type="range" id="Eslider" min="0" max="2" step="1" />
+          <span id="Elabel"></span>
+        </label>
 
-      <label>
-        Container size:
-        <input type="range" id="sizeSlider" min="20" max="90" value="50" />
-        <span id="sizeLabel"></span> vh
-      </label>
+        <label>
+          Container size:
+          <input type="range" id="sizeSlider" min="20" max="90" value="50" />
+          <span id="sizeLabel"></span> vh
+        </label>
+      </div>
+
+      <div id="plotwrapper">
+        <div id="plot"></div>
+      </div>
+      <a href="testing.html">Go to test results.</a>
     </div>
 
-    <div
-      id="wrapperdiv"
-      style="height: 50vh; width: 50vh; border: 4px solid purple"
-    >
-      <div id="plot" style="height: 100%; width: 100%"></div>
-    </div>
     <script type="module" src="./src/demo.js"></script>
   </body>
 </html>
