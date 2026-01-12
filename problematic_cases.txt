@@ -1,0 +1,18 @@
+# Detailing mc3d ids that seem that they may have an issue (with fermi, bxsf or other?)
+
+mc3d-2109 # whole page doesnt load? - no pbesolv1 base
+mc3d-1475 # fully errored out? - maybe no value fermisurface at 0.00 eV = no dhva plot?
+mc3d-18389 # same as above - seems to occur when no fermi corssing at 0ev shift.
+mc3d-22977 # same as above.
+mc3d-23080 # same as above.
+mc3d-18643 # x-axis seems mangled for some reason?
+mc3d-22148 # seems strangly assym.
+mc3d-21174 # really bad range
+mc3d-10921 # range seems messed up.
+mc3d-16112 # assymetric
+mc3d-11467 # path seems very assymetric?
+mc3d-1407 # seems a bit assymetric.
+mc3d-16112 # assymmetric + very large frequencies
+mc3d-15074 # negative range.
+mc3d-15408 # negative range.
+mc3d-14390 # very lumpy surface.
