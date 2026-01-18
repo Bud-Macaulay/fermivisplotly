@@ -38,17 +38,18 @@ npm run dev
 
 ### Development notes and TODOS
 
-- These cleaved meshes are significantly reduced in size (1/10th the previous), maybe these could be cached and loaded from a backend (via some expensive pipeline), this also means that loading them from the visualisercache is a little faster...
-
 #### Testing on 100x100x100 grid - performance notes etc.
 
-- Debouncing is a free feature that could be tuned to proportionally to the size of the data array.
-  - Alternative is a 'Go' button that does the recalculation only then...
-  - Some how offloading mesh calculation to a webworker through wasm (or even just a generic webworker) would be amazing but hard
-  - Low-resolution - could do the live updates, while the high resolution churns away in the background
-    - Crazy idea would be to have the highresolution mesh calculate on the backend and be able to be fetched'
-- Post process mesh optimization may make better meshes (at potentially little overhead.)
-- Possible future improvements:
+- Currently BZ and Fermisurface positioning is fully managed with custom code, in principle it may be better to switch to using SeeKPath instead (see weas)
 
-  - “Recalculate” button instead of live update
-  - Low-resolution preview that updates quickly, with full-res in background
+- Investigation of the size of the cache is reasonable - even for very large caches (100+ values, on very dense grids) results in 0.5mb memory footprint.
+
+  - currently these are simple THREE.Mesh(geometry, material); objects. I presume that their internal data structure is very performant but its unclear if this performance is for rendering/updates or memory footprint.
+  - currently the visualiser swaps values in and out of the cache by removing invalid surfaces and rerendering valid ones, this could possibly be improved by switching to a ThreeJS visibility states, (however the overhead here seems tiny.)
+
+- Mesh calculation (both formation and cleavage) is fully external to Three, using just JIT JS, this was a comprimise as it wasnt clear what visualiser engine we would use.
+
+  - I imagine that the internal Three Marchingcubes/Mesh Clipping is faster. Clipping is basically instant bit numerous optimisations have been made in the getFS file and it now does a lot of difficult to understand steps to run marching cubes fast.
+  - if we can lock this away safely with ThreeJS that'd be great
+
+- Offloading mesh calculation to a webworker through wasm (or even just a generic webworker) was implemented as some point - running efficient wasm marchingCubes could be great, this may be unneccessary if using ThreeJS MC implementation.
