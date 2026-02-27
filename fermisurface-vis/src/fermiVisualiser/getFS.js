@@ -1,4 +1,4 @@
-import { marchingCubes } from "./marchingCubes.js";
+import { marchingCubes } from "./marchingCubesNew.js";
 import { clipMeshToPlanes } from "./clipMeshOpt.js";
 
 import { mergeVertices } from "three-stdlib";

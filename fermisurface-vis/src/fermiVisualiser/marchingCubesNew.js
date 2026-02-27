@@ -6,7 +6,16 @@
  *
  * JS port by Mikola Lysenko
  *
- * Performance gains by using typed, preallocated arrays, function overheads minimised and a row cache
+ * Performance gains by using typed, preallocated arrays and direct array access (no map, no functions)
+ * and a row cache
+ * 
+ * Results in around a 50x speed up to the classic implementation.
+ * 
+ * Further optimisations are hard and probably will come from an algorithmic change or at the data level
+ * If wanting 
+ * (pregrid size reduction based on the potential)
+ * alternate algorithms do something similar 
+ * Dual Contouring - surface nets - octree adaptive marching cubes - hash grid -ray marching etc.
  */
 
 var edgeTable = new Uint32Array([
@@ -359,18 +368,22 @@ export function marchingCubes(dims, potential, bounds) {
   const edges = new Int32Array(12);
 
   // Scalar caches for two Z-slices
-  const slice0 = new Float32Array((nx + 1) * (ny + 1));
-  const slice1 = new Float32Array((nx + 1) * (ny + 1));
+  let slice0 = new Float32Array((nx + 1) * (ny + 1));
+  let slice1 = new Float32Array((nx + 1) * (ny + 1));
+  let grid = new Float32Array(8);
 
+  // old implementation used this function for mapping idx to cell
+  // this is now inlined and it offers around 2x improvements on dense meshes
   const idx = (x, y) => y * (nx + 1) + x;
 
   // Precompute first slice
   const sz0 = shift[2];
   for (let y = 0; y <= ny; y++) {
+    const rowOffset0 = y * (nx + 1);
     const sy = shift[1] + scale[1] * y;
     for (let x = 0; x <= nx; x++) {
       const sx = shift[0] + scale[0] * x;
-      slice0[idx(x, y)] = potential(sx, sy, sz0);
+      slice0[rowOffset0 + x] = potential(sx, sy, sz0);
     }
   }
 
@@ -379,40 +392,56 @@ export function marchingCubes(dims, potential, bounds) {
 
     // Compute next slice
     for (let y = 0; y <= ny; y++) {
+      const rowOffset1 = y * (nx + 1);
       const sy = shift[1] + scale[1] * y;
       for (let x = 0; x <= nx; x++) {
         const sx = shift[0] + scale[0] * x;
-        slice1[idx(x, y)] = potential(sx, sy, sz1);
+        slice1[rowOffset1 + x] = potential(sx, sy, sz1);
       }
     }
 
     for (let y = 0; y < ny; y++) {
+      const rowOffset0 = y * (nx + 1);
+      const rowOffset1 = (y + 1) * (nx + 1);
+      const sy = shift[1] + scale[1] * y;
+
       for (let x = 0; x < nx; x++) {
         const sx = shift[0] + scale[0] * x;
-        const sy = shift[1] + scale[1] * y;
         const sz = shift[2] + scale[2] * z;
 
         // Gather 8 cube vertices from slices
-        const grid = new Float32Array(8);
-        grid[0] = slice0[idx(x, y)];
-        grid[1] = slice0[idx(x + 1, y)];
-        grid[2] = slice0[idx(x + 1, y + 1)];
-        grid[3] = slice0[idx(x, y + 1)];
-        grid[4] = slice1[idx(x, y)];
-        grid[5] = slice1[idx(x + 1, y)];
-        grid[6] = slice1[idx(x + 1, y + 1)];
-        grid[7] = slice1[idx(x, y + 1)];
+        grid[0] = slice0[rowOffset0 + x];
+        grid[1] = slice0[rowOffset0 + x + 1];
+        grid[2] = slice0[rowOffset1 + x + 1];
+        grid[3] = slice0[rowOffset1 + x];
+        grid[4] = slice1[rowOffset0 + x];
+        grid[5] = slice1[rowOffset0 + x + 1];
+        grid[6] = slice1[rowOffset1 + x + 1];
+        grid[7] = slice1[rowOffset1 + x];
 
         // Compute cube mask
+        // tight forloops slow
+        // let cube_index = 0;
+        // for (let i = 0; i < 8; i++) {
+        //   cube_index |= grid[i] > 0 ? 1 << i : 0;
+        // }
+
+        // inlined version (5-10% faster)
         let cube_index = 0;
-        for (let i = 0; i < 8; i++) {
-          cube_index |= grid[i] > 0 ? 1 << i : 0;
-        }
+        if (grid[0] > 0) cube_index |= 1;
+        if (grid[1] > 0) cube_index |= 2;
+        if (grid[2] > 0) cube_index |= 4;
+        if (grid[3] > 0) cube_index |= 8;
+        if (grid[4] > 0) cube_index |= 16;
+        if (grid[5] > 0) cube_index |= 32;
+        if (grid[6] > 0) cube_index |= 64;
+        if (grid[7] > 0) cube_index |= 128;
 
         const edge_mask = edgeTable[cube_index];
         if (!edge_mask) continue;
 
         // Compute vertices for edges
+        // some duplication but vertex cache lookup was slow...?
         for (let i = 0; i < 12; i++) {
           if (!(edge_mask & (1 << i))) continue;
 
@@ -423,7 +452,7 @@ export function marchingCubes(dims, potential, bounds) {
           const a = grid[e[0]];
           const b = grid[e[1]];
           const d = a - b;
-          const t = Math.abs(d) > eps ? a / d : 0;
+          const t = d > eps || d < -eps ? a / d : 0;
 
           nv[0] = sx + scale[0] * (v0[0] + t * (v1[0] - v0[0]));
           nv[1] = sy + scale[1] * (v0[1] + t * (v1[1] - v0[1]));
@@ -447,9 +476,9 @@ export function marchingCubes(dims, potential, bounds) {
     }
 
     // Swap slices
-    const tmp = slice0;
-    slice0.set(slice1);
-    slice1.set(tmp);
+    let tmp = slice0;
+    slice0 = slice1;
+    slice1 = tmp;
   }
 
   // Trim arrays to actual size
