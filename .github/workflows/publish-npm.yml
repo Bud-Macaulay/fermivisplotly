@@ -1,13 +1,14 @@
-name: Publish Fermisurface-Vis
+name: Publish the Javascript lib on NPM
 
 on:
   push:
     tags:
-      - "v*"
+      - "js-v*"
 
 jobs:
   publish_npm:
     runs-on: ubuntu-latest
+    if: github.repository == 'materialscloud-org/fermisurface-visualiser'
     defaults:
       run:
         working-directory: fermisurface-vis
@@ -22,11 +23,8 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org/"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: npm run build
+      - run: npm ci
+      - run: npm run build
 
       - name: Publish to npm
         run: npm publish
